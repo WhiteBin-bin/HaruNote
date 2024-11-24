@@ -1,12 +1,10 @@
 import React from "react";
-import Navbar from "./Navbar";
 import title from "./assets/title.png";
 import Signin from "./Signin";
 
 const Main = () => {
   return (
     <div>
-      <Navbar />
       <main
         style={{
           height: "720px",

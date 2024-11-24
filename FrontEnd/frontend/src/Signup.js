@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import title from "./assets/title.png";
+import signup from "./assets/signup.png";
 
-const Signin = () => {
+const Signup = () => {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -25,12 +26,19 @@ const Signin = () => {
         }}
       >
         <img
-          src={title}
-          style={{ width: "800px", marginTop: "25%" }}
+          src={signup}
+          style={{ width: "500px", marginTop: "25%" }}
           alt="description"
         />
-        {/* <p>소소한 일상을 나누는 공간, 하루노트</p> */}
+        {/* <p>나만의 일기장 만들기</p> */}
         <div style={styles.container}>
+          <input
+            type="text"
+            placeholder="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            style={styles.input}
+          />
           <input
             type="email"
             placeholder="name@company.com"
@@ -55,7 +63,7 @@ const Signin = () => {
               onMouseOver={(e) => (e.target.style.backgroundColor = "#444")}
               onMouseOut={(e) => (e.target.style.backgroundColor = "black")}
             >
-              Sign in
+              Sign up
             </button>
           </div>
         </div>
@@ -73,12 +81,12 @@ const styles = {
     maxWidth: "400px",
     padding: "20px",
     backgroundColor: "#fff",
-    marginTop: "70px",
+    marginTop: "40px",
     position: "relative",
   },
   input: {
     padding: "17px 25px",
-    marginBottom: "30px",
+    marginBottom: "20px",
     width: "80%",
     borderRadius: "30px",
     border: "1px solid black",
@@ -114,4 +122,4 @@ const styles = {
   },
 };
 
-export default Signin;
+export default Signup;
