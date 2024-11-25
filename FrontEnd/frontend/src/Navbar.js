@@ -9,9 +9,9 @@ function Navbar() {
         <ul style={styles.navList}>
           <div style={styles.navLine}></div>
           <li style={styles.navItem}>
-            <a href="/" style={styles.navLink}>
+            <Link to="/calendar" style={styles.navLink}>
               Calendar
-            </a>
+            </Link>
           </li>
           <li style={styles.navItem}>
             <a href="#" style={styles.navLink}>
