@@ -260,9 +260,10 @@ def get_sorted_page_titles(
 
 
 #10. 관리자가 사용자 삭제
-@user_router.delete("/users/{user_id}", status_code=status.HTTP_200_OK)
-def delete_user(
-    user_id: int,
+#10. 관리자가 이메일로 사용자 삭제
+@user_router.delete("/users/email/{email}", status_code=status.HTTP_200_OK)
+def delete_user_by_email(
+    email: str,
     current_user: User = Depends(authenticate),  # 현재 인증된 사용자
     session=Depends(get_session),
 ):
@@ -274,7 +275,7 @@ def delete_user(
         )
     
     # 삭제할 사용자 조회
-    user_to_delete = session.query(User).filter(User.id == user_id).first()
+    user_to_delete = session.query(User).filter(User.email == email).first()
     if not user_to_delete:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -282,7 +283,7 @@ def delete_user(
         )
 
     # 관리자 자신은 삭제할 수 없도록 방지
-    if current_user.id == user_id:
+    if current_user.email == email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="관리자는 자신을 삭제할 수 없습니다."
@@ -290,7 +291,8 @@ def delete_user(
     
     session.delete(user_to_delete)
     session.commit()
-    return {"message": "사용자가 성공적으로 삭제되었습니다."}
+    return {"message": f"{email} 유저가 성공적으로 삭제되었습니다."}
+
 
 
 #11관리자 또는 페이지 소유자 페이지 삭제
@@ -339,25 +341,26 @@ def get_pages_by_owner(
 
     return pages
 
-#13 User정보 id로 list 정렬
-@user_router.get("/users/ids", response_model=List[int])
-def get_sorted_user_ids(
+#13 User정보 username과 email로 list 정렬
+@user_router.get("/users/details", response_model=List[dict])
+def get_sorted_user_details(
     order_by: str = Query("asc", enum=["asc", "desc"], description="정렬 순서: asc(오름차순) 또는 desc(내림차순)"),
     session: Session = Depends(get_session)
 ):
-    # User 테이블에서 모든 사용자 ID 가져오기
-    user_ids = session.query(User.id).all()
+    # User 테이블에서 username과 email 가져오기
+    user_details = session.query(User.username, User.email).all()
 
-    # ID를 리스트로 변환
-    user_ids_list = [user_id[0] for user_id in user_ids]  # 튜플에서 값 추출
+    # 리스트로 변환
+    user_details_list = [{"username": detail[0], "email": detail[1]} for detail in user_details]
 
     # 정렬
     if order_by == "asc":
-        sorted_user_ids = sorted(user_ids_list)
+        sorted_user_details = sorted(user_details_list, key=lambda x: x["username"])
     else:
-        sorted_user_ids = sorted(user_ids_list, reverse=True)
+        sorted_user_details = sorted(user_details_list, key=lambda x: x["username"], reverse=True)
 
-    return sorted_user_ids
+    return sorted_user_details
+
 
 
 
