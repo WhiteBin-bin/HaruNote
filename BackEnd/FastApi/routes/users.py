@@ -41,6 +41,26 @@ async def sign_new_user(data: UserSignUp, session=Depends(get_session)) -> dict:
 #UPDATE user
 #SET is_admin = true
 #WHERE id = 1;
+# @user_router.post("/Signin")
+# def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
+#     statement = select(User).where(User.email == data.email)
+#     user = session.exec(statement).first()
+#     if not user:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="일치하는 사용자가 존재하지 않습니다.",
+#         )
+
+#     # if user.password != data.password:
+#     if hash_password.verify_password(data.password, user.password) == False:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="패스워드가 일치하지 않습니다.",
+#         )
+
+#     access_token = create_jwt_token(email=user.email, user_id=user.id)
+#     return {"message": "로그인에 성공했습니다.", "access_token": access_token}
+
 @user_router.post("/Signin")
 def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
     statement = select(User).where(User.email == data.email)
@@ -51,15 +71,24 @@ def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
             detail="일치하는 사용자가 존재하지 않습니다.",
         )
 
-    # if user.password != data.password:
-    if hash_password.verify_password(data.password, user.password) == False:
+    if not hash_password.verify_password(data.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="패스워드가 일치하지 않습니다.",
         )
 
+    # JWT 생성
     access_token = create_jwt_token(email=user.email, user_id=user.id)
-    return {"message": "로그인에 성공했습니다.", "access_token": access_token}
+
+    # 사용자 ID를 포함한 응답 반환
+    return {
+        "message": "로그인에 성공했습니다.",
+        "access_token": access_token,
+        "user_id": user.id  # 로그인한 사용자의 ID 추가
+    }
+
+
+
 
 #3.페이지 생성
 @user_router.post("/pages", response_model=Page)
