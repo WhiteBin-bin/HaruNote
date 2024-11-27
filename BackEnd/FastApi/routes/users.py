@@ -1,19 +1,21 @@
-from typing import List, Optional
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from typing import List
+from fastapi import APIRouter, HTTPException, status, Depends, Query, UploadFile
+from fastapi.responses import FileResponse
 from auth.authenticate import authenticate
 from auth.jwt_handler import create_jwt_token
-from models.users import Page, User, UserSignIn, UserSignUp
+from models.users import Page, User, UserSignIn, UserSignUp, FileModel
 from database.connection import get_session
 from sqlmodel import select
 from auth.hash_password import HashPassword
 from uuid import uuid4
 from datetime import datetime
 from sqlalchemy.orm import Session
+import os
 
 
 user_router = APIRouter()
 hash_password = HashPassword()
-
+UPLOAD_DIR = "uploads/"
 
 #1.사용자 등록
 @user_router.post("/Signup", status_code=status.HTTP_201_CREATED)
@@ -37,6 +39,30 @@ async def sign_new_user(data: UserSignUp, session=Depends(get_session)) -> dict:
 
 
 #2.로그인 처리
+#2. 수동으로 관리자 설정 ex)SELECT id FROM user WHERE email = 'user@example.com';
+#UPDATE user
+#SET is_admin = true
+#WHERE id = 1;
+# @user_router.post("/Signin")
+# def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
+#     statement = select(User).where(User.email == data.email)
+#     user = session.exec(statement).first()
+#     if not user:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="일치하는 사용자가 존재하지 않습니다.",
+#         )
+
+#     # if user.password != data.password:
+#     if hash_password.verify_password(data.password, user.password) == False:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="패스워드가 일치하지 않습니다.",
+#         )
+
+#     access_token = create_jwt_token(email=user.email, user_id=user.id)
+#     return {"message": "로그인에 성공했습니다.", "access_token": access_token}
+
 @user_router.post("/Signin")
 def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
     statement = select(User).where(User.email == data.email)
@@ -47,15 +73,24 @@ def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
             detail="일치하는 사용자가 존재하지 않습니다.",
         )
 
-    # if user.password != data.password:
-    if hash_password.verify_password(data.password, user.password) == False:
+    if not hash_password.verify_password(data.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="패스워드가 일치하지 않습니다.",
         )
 
+    # JWT 생성
     access_token = create_jwt_token(email=user.email, user_id=user.id)
-    return {"message": "로그인에 성공했습니다.", "access_token": access_token}
+
+    # 사용자 ID를 포함한 응답 반환
+    return {
+        "message": "로그인에 성공했습니다.",
+        "access_token": access_token,
+        "user_id": user.id  # 로그인한 사용자의 ID 추가
+    }
+
+
+
 
 #3.페이지 생성
 @user_router.post("/pages", response_model=Page)
@@ -71,7 +106,6 @@ def create_page(
         content=page.content,
         public=page.public,  # 공개 여부 설정
         created_at=datetime.now(),
-        updated_at=page.updated_at,
         owner_id=current_user.id  # 인증된 사용자의 ID를 owner_id로 설정
     )
     session.add(new_page)
@@ -80,17 +114,26 @@ def create_page(
     return new_page
 
 #4.모든 페이지 조회
+# @user_router.get("/pages", response_model=List[Page])
+# def get_pages(session=Depends(get_session)):
+#     pages = session.query(Page).all()  # 모든 페이지 조회
+#     return pages
+
+#4. 공개된 페이지 조회 (public이 True인 경우만)
 @user_router.get("/pages", response_model=List[Page])
-def get_pages(session=Depends(get_session)):
-    pages = session.query(Page).all()  # 모든 페이지 조회
-    return pages
+def get_public_pages(session=Depends(get_session)):
+    # 공개된 페이지만 조회
+    public_pages = session.query(Page).filter(Page.public == True).all()
+    return public_pages
+
 
 #5.특정 페이지 조회
 @user_router.get("/pages/", response_model=List[Page])
 def get_pages_by_title(
-    title: str = Query(..., description="조회할 페이지의 제목"),
-    session: Session = Depends(get_session),
-    current_user: User = Depends(authenticate)  # 인증된 사용자
+        title: str = Query(..., description="조회할 페이지의 제목"),
+        session: Session = Depends(get_session),
+        current_user: User = Depends(authenticate),  # 인증된 사용자
+        filename: str = Query(None, description="조회할 파일의 이름")  # 파일 이름을 쿼리 파라미터로 받음
 ):
     # 데이터베이스에서 제목으로 페이지 조회
     pages = session.query(Page).filter(Page.title == title).all()
@@ -99,11 +142,7 @@ def get_pages_by_title(
         raise HTTPException(status_code=404, detail="No pages found with the given title")
 
     # 비공개 페이지 접근 권한 확인
-    filtered_pages = []
-    for page in pages:
-        if not page.public and page.owner_id != current_user.id:
-            continue  # 비공개 페이지는 소유자가 아닌 경우 접근 불가
-        filtered_pages.append(page)
+    filtered_pages = [page for page in pages if page.public or page.owner_id == current_user.id]
 
     if not filtered_pages:
         raise HTTPException(
@@ -111,7 +150,14 @@ def get_pages_by_title(
             detail="You are not authorized to access the requested pages"
         )
 
-    return filtered_pages
+    # 파일이 요청된 경우 파일 경로 확인 및 반환
+    if filename:
+        file_path = os.path.join(UPLOAD_DIR, filename)
+        if os.path.exists(file_path):
+            return FileResponse(file_path, media_type="application/octet-stream")
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return filtered_pages, filename
 
 
 #6.날짜별로 그룹화
@@ -185,19 +231,19 @@ def update_page(page_id: str, updated_page: Page, session=Depends(get_session), 
 
 
 #8.페이지 삭제
-@user_router.delete("/pages/{page_id}")
-def delete_page(page_id: str, session=Depends(get_session), current_user: User = Depends(authenticate)):
-    page = session.query(Page).filter(Page.id == page_id).first()
-    if not page:
-        raise HTTPException(status_code=404, detail="Page not found")
+# @user_router.delete("/pages/{page_id}")
+# def delete_page(page_id: str, session=Depends(get_session), current_user: User = Depends(authenticate)):
+#     page = session.query(Page).filter(Page.id == page_id).first()
+#     if not page:
+#         raise HTTPException(status_code=404, detail="Page not found")
 
-    # 페이지 소유자만 삭제 가능
-    if page.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="You can only delete your own pages.")
+#     # 페이지 소유자만 삭제 가능
+#     if page.owner_id != current_user.id:
+#         raise HTTPException(status_code=403, detail="You can only delete your own pages.")
 
-    session.delete(page)
-    session.commit()
-    return {"message" : "Page has been deleted."}
+#     session.delete(page)
+#     session.commit()
+#     return {"message" : "Page has been deleted."}
 
 
 
@@ -216,3 +262,152 @@ def get_sorted_page_titles(
         sorted_titles = sorted(result, reverse=True)
 
     return sorted_titles
+
+
+#10. 관리자가 사용자 삭제
+#10. 관리자가 이메일로 사용자 삭제
+@user_router.delete("/users/email/{email}", status_code=status.HTTP_200_OK)
+def delete_user_by_email(
+    email: str,
+    current_user: User = Depends(authenticate),  # 현재 인증된 사용자
+    session=Depends(get_session),
+):
+    # 관리자 권한 확인
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="관리자 권한이 필요합니다."
+        )
+    
+    # 삭제할 사용자 조회
+    user_to_delete = session.query(User).filter(User.email == email).first()
+    if not user_to_delete:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="삭제하려는 사용자가 존재하지 않습니다."
+        )
+
+    # 관리자 자신은 삭제할 수 없도록 방지
+    if current_user.email == email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="관리자는 자신을 삭제할 수 없습니다."
+        )
+    
+    session.delete(user_to_delete)
+    session.commit()
+    return {"message": f"{email} 유저가 성공적으로 삭제되었습니다."}
+
+
+
+#11관리자 또는 페이지 소유자 페이지 삭제
+@user_router.delete("/pages/{page_id}")
+def delete_page(
+    page_id: str,
+    session=Depends(get_session),
+    current_user: User = Depends(authenticate)  # 인증된 사용자
+):
+    # 삭제할 페이지 조회
+    page = session.query(Page).filter(Page.id == page_id).first()
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    # 페이지 소유자가 아니고 관리자가 아닐 경우 접근 불가
+    if page.owner_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=403, detail="You do not have permission to delete this page."
+        )
+
+    # 페이지 삭제
+    session.delete(page)
+    session.commit()
+    return {"message": "Page  has been deleted."}
+
+#12 owner_Id가 만든 페이지 출력
+@user_router.get("/pages/by-owner/{owner_id}", response_model=List[Page])
+def get_pages_by_owner(
+    owner_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(authenticate)  # 인증된 사용자
+):
+    # owner_id에 해당하는 페이지를 조회
+    pages = session.query(Page).filter(Page.owner_id == owner_id).all()
+
+    # 페이지가 없을 경우 에러 반환
+    if not pages:
+        raise HTTPException(status_code=404, detail="해당 소유자가 만든 페이지가 없습니다.")
+
+    # 비공개 페이지 접근 권한 확인
+    if any(not page.public and page.owner_id != current_user.id for page in pages):
+        raise HTTPException(
+            status_code=403,
+            detail="비공개 페이지는 소유자만 접근 가능합니다."
+        )
+
+    return pages
+
+#13 User정보 username과 email로 list 정렬
+@user_router.get("/users/details", response_model=List[dict])
+def get_sorted_user_details(
+    order_by: str = Query("asc", enum=["asc", "desc"], description="정렬 순서: asc(오름차순) 또는 desc(내림차순)"),
+    session: Session = Depends(get_session)
+):
+    # User 테이블에서 username과 email 가져오기
+    user_details = session.query(User.username, User.email).all()
+
+    # 리스트로 변환
+    user_details_list = [{"username": detail[0], "email": detail[1]} for detail in user_details]
+
+    # 정렬
+    if order_by == "asc":
+        sorted_user_details = sorted(user_details_list, key=lambda x: x["username"])
+    else:
+<<<<<<< HEAD
+        sorted_user_details = sorted(user_details_list, key=lambda x: x["username"], reverse=True)
+
+    return sorted_user_details
+
+=======
+        sorted_user_ids = sorted(user_ids_list, reverse=True)
+    return sorted_user_ids
+>>>>>>> hyeonbin
+
+#14.파일 업로드 기능
+@user_router.post("/upload", response_model=FileModel)
+async def upload_file(file: UploadFile, session: Session = Depends(get_session)):
+    try:
+        # 파일 저장
+        file_path = os.path.join(UPLOAD_DIR, file.filename)
+        with open(file_path, "wb") as f:
+            f.write(await file.read())
+
+        # 메타데이터만 DB에 저장
+        file_data = FileModel(
+            filename=file.filename,
+            content_type=file.content_type,
+            size=os.path.getsize(file_path),
+            created_at=datetime.now()
+        )
+
+        session.add(file_data)
+        session.commit()
+        session.refresh(file_data)
+
+        # 파일을 제공할 수 있는 URL 반환
+        file_url = f"http://localhost:8000/files/{file.filename}"
+        return {"file_url": file_url, **file_data.dict()}
+
+    except Exception as e:
+        session.rollback()
+        logging.error(f"파일 업로드 중 오류 발생: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"파일 업로드 중 오류 발생: {str(e)}")
+
+#15.파일 가져오기 기능
+@user_router.get("/files/{filename}")
+async def get_file(filename: str):
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    raise HTTPException(status_code=404, detail="File not found")
+
+
