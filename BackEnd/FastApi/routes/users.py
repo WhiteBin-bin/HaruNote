@@ -1,19 +1,21 @@
-from typing import List, Optional
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from typing import List
+from fastapi import APIRouter, HTTPException, status, Depends, Query, UploadFile
+from fastapi.responses import FileResponse
 from auth.authenticate import authenticate
 from auth.jwt_handler import create_jwt_token
-from models.users import Page, User, UserSignIn, UserSignUp
+from models.users import Page, User, UserSignIn, UserSignUp, FileModel
 from database.connection import get_session
 from sqlmodel import select
 from auth.hash_password import HashPassword
 from uuid import uuid4
 from datetime import datetime
 from sqlalchemy.orm import Session
+import os
 
 
 user_router = APIRouter()
 hash_password = HashPassword()
-
+UPLOAD_DIR = "uploads/"
 
 #1.사용자 등록
 @user_router.post("/Signup", status_code=status.HTTP_201_CREATED)
@@ -104,7 +106,6 @@ def create_page(
         content=page.content,
         public=page.public,  # 공개 여부 설정
         created_at=datetime.now(),
-        updated_at=page.updated_at,
         owner_id=current_user.id  # 인증된 사용자의 ID를 owner_id로 설정
     )
     session.add(new_page)
@@ -129,9 +130,10 @@ def get_public_pages(session=Depends(get_session)):
 #5.특정 페이지 조회
 @user_router.get("/pages/", response_model=List[Page])
 def get_pages_by_title(
-    title: str = Query(..., description="조회할 페이지의 제목"),
-    session: Session = Depends(get_session),
-    current_user: User = Depends(authenticate)  # 인증된 사용자
+        title: str = Query(..., description="조회할 페이지의 제목"),
+        session: Session = Depends(get_session),
+        current_user: User = Depends(authenticate),  # 인증된 사용자
+        filename: str = Query(None, description="조회할 파일의 이름")  # 파일 이름을 쿼리 파라미터로 받음
 ):
     # 데이터베이스에서 제목으로 페이지 조회
     pages = session.query(Page).filter(Page.title == title).all()
@@ -140,11 +142,7 @@ def get_pages_by_title(
         raise HTTPException(status_code=404, detail="No pages found with the given title")
 
     # 비공개 페이지 접근 권한 확인
-    filtered_pages = []
-    for page in pages:
-        if not page.public and page.owner_id != current_user.id:
-            continue  # 비공개 페이지는 소유자가 아닌 경우 접근 불가
-        filtered_pages.append(page)
+    filtered_pages = [page for page in pages if page.public or page.owner_id == current_user.id]
 
     if not filtered_pages:
         raise HTTPException(
@@ -152,7 +150,14 @@ def get_pages_by_title(
             detail="You are not authorized to access the requested pages"
         )
 
-    return filtered_pages
+    # 파일이 요청된 경우 파일 경로 확인 및 반환
+    if filename:
+        file_path = os.path.join(UPLOAD_DIR, filename)
+        if os.path.exists(file_path):
+            return FileResponse(file_path, media_type="application/octet-stream")
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return filtered_pages, filename
 
 
 #6.날짜별로 그룹화
@@ -357,11 +362,52 @@ def get_sorted_user_details(
     if order_by == "asc":
         sorted_user_details = sorted(user_details_list, key=lambda x: x["username"])
     else:
+<<<<<<< HEAD
         sorted_user_details = sorted(user_details_list, key=lambda x: x["username"], reverse=True)
 
     return sorted_user_details
 
+=======
+        sorted_user_ids = sorted(user_ids_list, reverse=True)
+    return sorted_user_ids
+>>>>>>> hyeonbin
 
+#14.파일 업로드 기능
+@user_router.post("/upload", response_model=FileModel)
+async def upload_file(file: UploadFile, session: Session = Depends(get_session)):
+    try:
+        # 파일 저장
+        file_path = os.path.join(UPLOAD_DIR, file.filename)
+        with open(file_path, "wb") as f:
+            f.write(await file.read())
 
+        # 메타데이터만 DB에 저장
+        file_data = FileModel(
+            filename=file.filename,
+            content_type=file.content_type,
+            size=os.path.getsize(file_path),
+            created_at=datetime.now()
+        )
+
+        session.add(file_data)
+        session.commit()
+        session.refresh(file_data)
+
+        # 파일을 제공할 수 있는 URL 반환
+        file_url = f"http://localhost:8000/files/{file.filename}"
+        return {"file_url": file_url, **file_data.dict()}
+
+    except Exception as e:
+        session.rollback()
+        logging.error(f"파일 업로드 중 오류 발생: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"파일 업로드 중 오류 발생: {str(e)}")
+
+#15.파일 가져오기 기능
+@user_router.get("/files/{filename}")
+async def get_file(filename: str):
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    raise HTTPException(status_code=404, detail="File not found")
 
 
