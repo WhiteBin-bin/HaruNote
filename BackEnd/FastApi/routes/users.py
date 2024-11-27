@@ -113,10 +113,18 @@ def create_page(
     return new_page
 
 #4.모든 페이지 조회
+# @user_router.get("/pages", response_model=List[Page])
+# def get_pages(session=Depends(get_session)):
+#     pages = session.query(Page).all()  # 모든 페이지 조회
+#     return pages
+
+#4. 공개된 페이지 조회 (public이 True인 경우만)
 @user_router.get("/pages", response_model=List[Page])
-def get_pages(session=Depends(get_session)):
-    pages = session.query(Page).all()  # 모든 페이지 조회
-    return pages
+def get_public_pages(session=Depends(get_session)):
+    # 공개된 페이지만 조회
+    public_pages = session.query(Page).filter(Page.public == True).all()
+    return public_pages
+
 
 #5.특정 페이지 조회
 @user_router.get("/pages/", response_model=List[Page])
