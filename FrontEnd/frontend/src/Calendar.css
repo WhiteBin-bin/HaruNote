@@ -1,0 +1,128 @@
+.notion-table-calendar {
+  width: 100%;
+  max-width: 1200px;
+  margin: 20px auto;
+  font-family: "Arial", sans-serif;
+  color: #333;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.calendar-header h2 {
+  font-size: 16px;
+  font-weight: normal;
+}
+
+.calendar-header button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.calendar-table {
+  width: 100%; /* 100%로 설정 (부모 요소의 너비를 채움) */
+  max-width: 1200px; /* 원하는 최대 너비로 설정 */
+  border-collapse: collapse;
+  text-align: center;
+  table-layout: fixed; /* 균등한 열 너비 */
+}
+
+.calendar-table th {
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: normal;
+  padding: 10px 0;
+  color: rgba(55, 53, 47, 0.5);
+}
+
+.calendar-table td {
+  height: 100px; /* 셀 높이 */
+  border: 1px solid #e0e0e0;
+  position: relative; /* 숫자 위치 조정을 위해 필요 */
+  text-align: left; /* 기본 텍스트 정렬 */
+}
+
+.calendar-table td.empty {
+  background-color: #f9f9f9; /* 빈 날짜 배경색 */
+  color: #e0e0e0; /* 텍스트 색상 */
+}
+
+.calendar-table .date {
+  background-color: #fff;
+  padding: 0; /* 기본 패딩 제거 */
+}
+
+.calendar-table .date::before {
+  content: attr(data-date); /* 날짜를 표시 */
+  position: absolute;
+  top: 5px; /* 상단 여백 */
+  right: 5px; /* 오른쪽 여백 */
+  font-size: 12px; /* 숫자 크기 */
+  color: #333; /* 텍스트 색상 */
+}
+
+.calendar-table .faded::before {
+  color: rgba(55, 53, 47, 0.5); /* 흐린 색상 적용 */
+}
+
+.calendar-table .weekend {
+  background-color: rgb(247, 247, 245);
+}
+
+.cell-button {
+  /* 버튼 기본 스타일 제거 */
+  all: unset;
+  /* 크기 및 위치 설정 */
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 20px;
+  height: 20px;
+  background-color: #f0f0f0;
+  text-align: center;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0; /* 숨김 */
+  transition: opacity 0.2s ease-in-out; /* 부드러운 전환 */
+}
+
+td {
+  position: relative; /* 버튼을 위치시키기 위한 기준점 */
+}
+
+td:hover .cell-button {
+  opacity: 1; /* 보임 */
+}
+
+/* 모달 오버레이 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5); /* 반투명 검정 배경 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+/* 모달 창 */
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 1000px;
+  max-height: 500px;
+  width: 100%;
+  height: 100%;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
