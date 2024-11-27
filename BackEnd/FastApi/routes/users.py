@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, HTTPException, status, Depends, Query, File
 from auth.authenticate import authenticate
 from auth.jwt_handler import create_jwt_token
 from models.users import Page, User, UserSignIn, UserSignUp
