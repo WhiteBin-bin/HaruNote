@@ -14,7 +14,6 @@ class User(SQLModel, table=True):
     email: EmailStr  # 이메일 (고유)
     password: str  # 암호
     username: str  # 사용자 이름
-    is_admin: bool = Field(default=False)  # 관리자 여부 추가
     pages: List["Page"] = Relationship(back_populates="owner")  # 사용자와 연결된 페이지들
 
 
