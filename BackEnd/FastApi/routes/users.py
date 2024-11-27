@@ -189,19 +189,19 @@ def update_page(page_id: str, updated_page: Page, session=Depends(get_session), 
 
 
 #8.페이지 삭제
-@user_router.delete("/pages/{page_id}")
-def delete_page(page_id: str, session=Depends(get_session), current_user: User = Depends(authenticate)):
-    page = session.query(Page).filter(Page.id == page_id).first()
-    if not page:
-        raise HTTPException(status_code=404, detail="Page not found")
+# @user_router.delete("/pages/{page_id}")
+# def delete_page(page_id: str, session=Depends(get_session), current_user: User = Depends(authenticate)):
+#     page = session.query(Page).filter(Page.id == page_id).first()
+#     if not page:
+#         raise HTTPException(status_code=404, detail="Page not found")
 
-    # 페이지 소유자만 삭제 가능
-    if page.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="You can only delete your own pages.")
+#     # 페이지 소유자만 삭제 가능
+#     if page.owner_id != current_user.id:
+#         raise HTTPException(status_code=403, detail="You can only delete your own pages.")
 
-    session.delete(page)
-    session.commit()
-    return {"message" : "Page has been deleted."}
+#     session.delete(page)
+#     session.commit()
+#     return {"message" : "Page has been deleted."}
 
 
 
@@ -221,7 +221,8 @@ def get_sorted_page_titles(
 
     return sorted_titles
 
-#10. 관리자 사용자 삭제
+
+#10. 관리자가 사용자 삭제
 @user_router.delete("/users/{user_id}", status_code=status.HTTP_200_OK)
 def delete_user(
     user_id: int,
@@ -252,9 +253,10 @@ def delete_user(
     
     session.delete(user_to_delete)
     session.commit()
-    return {"message": f"사용자 {user_id}가 성공적으로 삭제되었습니다."}
+    return {"message": "사용자가 성공적으로 삭제되었습니다."}
 
-#관리자 또는 페이지 소유자 페이지 삭제
+
+#11관리자 또는 페이지 소유자 페이지 삭제
 @user_router.delete("/pages/{page_id}")
 def delete_page(
     page_id: str,
@@ -275,4 +277,51 @@ def delete_page(
     # 페이지 삭제
     session.delete(page)
     session.commit()
-    return {"message": f"Page {page_id} has been deleted."}
+    return {"message": "Page  has been deleted."}
+
+#12 owner_Id가 만든 페이지 출력
+@user_router.get("/pages/by-owner/{owner_id}", response_model=List[Page])
+def get_pages_by_owner(
+    owner_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(authenticate)  # 인증된 사용자
+):
+    # owner_id에 해당하는 페이지를 조회
+    pages = session.query(Page).filter(Page.owner_id == owner_id).all()
+
+    # 페이지가 없을 경우 에러 반환
+    if not pages:
+        raise HTTPException(status_code=404, detail="해당 소유자가 만든 페이지가 없습니다.")
+
+    # 비공개 페이지 접근 권한 확인
+    if any(not page.public and page.owner_id != current_user.id for page in pages):
+        raise HTTPException(
+            status_code=403,
+            detail="비공개 페이지는 소유자만 접근 가능합니다."
+        )
+
+    return pages
+
+#13 User정보 id로 list 정렬
+@user_router.get("/users/ids", response_model=List[int])
+def get_sorted_user_ids(
+    order_by: str = Query("asc", enum=["asc", "desc"], description="정렬 순서: asc(오름차순) 또는 desc(내림차순)"),
+    session: Session = Depends(get_session)
+):
+    # User 테이블에서 모든 사용자 ID 가져오기
+    user_ids = session.query(User.id).all()
+
+    # ID를 리스트로 변환
+    user_ids_list = [user_id[0] for user_id in user_ids]  # 튜플에서 값 추출
+
+    # 정렬
+    if order_by == "asc":
+        sorted_user_ids = sorted(user_ids_list)
+    else:
+        sorted_user_ids = sorted(user_ids_list, reverse=True)
+
+    return sorted_user_ids
+
+
+
+
