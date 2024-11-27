@@ -37,6 +37,10 @@ async def sign_new_user(data: UserSignUp, session=Depends(get_session)) -> dict:
 
 
 #2.로그인 처리
+#2. 수동으로 관리자 설정 ex)SELECT id FROM user WHERE email = 'user@example.com';
+#UPDATE user
+#SET is_admin = true
+#WHERE id = 1;
 @user_router.post("/Signin")
 def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
     statement = select(User).where(User.email == data.email)
@@ -216,3 +220,59 @@ def get_sorted_page_titles(
         sorted_titles = sorted(result, reverse=True)
 
     return sorted_titles
+
+#10. 관리자 사용자 삭제
+@user_router.delete("/users/{user_id}", status_code=status.HTTP_200_OK)
+def delete_user(
+    user_id: int,
+    current_user: User = Depends(authenticate),  # 현재 인증된 사용자
+    session=Depends(get_session),
+):
+    # 관리자 권한 확인
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="관리자 권한이 필요합니다."
+        )
+    
+    # 삭제할 사용자 조회
+    user_to_delete = session.query(User).filter(User.id == user_id).first()
+    if not user_to_delete:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="삭제하려는 사용자가 존재하지 않습니다."
+        )
+
+    # 관리자 자신은 삭제할 수 없도록 방지
+    if current_user.id == user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="관리자는 자신을 삭제할 수 없습니다."
+        )
+    
+    session.delete(user_to_delete)
+    session.commit()
+    return {"message": f"사용자 {user_id}가 성공적으로 삭제되었습니다."}
+
+#관리자 또는 페이지 소유자 페이지 삭제
+@user_router.delete("/pages/{page_id}")
+def delete_page(
+    page_id: str,
+    session=Depends(get_session),
+    current_user: User = Depends(authenticate)  # 인증된 사용자
+):
+    # 삭제할 페이지 조회
+    page = session.query(Page).filter(Page.id == page_id).first()
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    # 페이지 소유자가 아니고 관리자가 아닐 경우 접근 불가
+    if page.owner_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=403, detail="You do not have permission to delete this page."
+        )
+
+    # 페이지 삭제
+    session.delete(page)
+    session.commit()
+    return {"message": f"Page {page_id} has been deleted."}
