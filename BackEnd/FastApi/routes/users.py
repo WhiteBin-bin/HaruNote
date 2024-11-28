@@ -208,7 +208,6 @@ async def get_pages_by_title(
 
         response_data = []
         for page in filtered_pages:
-            print(f"Processing page {page.id} with files: {page.files}")  # 디버깅 로그
             page_data = {
                 "id": page.id,
                 "title": page.title,
