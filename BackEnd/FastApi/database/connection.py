@@ -1,5 +1,6 @@
 from sqlmodel import create_engine, SQLModel, Session
 from pydantic_settings import BaseSettings
+from pydantic import Field, EmailStr
 from typing import Optional
 
 class Settings(BaseSettings):
@@ -7,13 +8,12 @@ class Settings(BaseSettings):
     SECRET_KEY: Optional[str] = None
 
     # Email settings
-    MAIL_USERNAME: Optional[str] = None
-    MAIL_PASSWORD: Optional[str] = None
-    MAIL_FROM: Optional[str] = None
-    MAIL_PORT: Optional[int] = None
-    MAIL_SERVER: Optional[str] = None
-    MAIL_STARTTLS: Optional[bool] = None
-    MAIL_SSL: Optional[bool] = None
+    smtp_server: str = Field(env="SMTP_SERVER")
+    smtp_port: int = Field(env="SMTP_PORT")
+    smtp_user: EmailStr = Field(env="SMTP_USER")
+    smtp_password: str = Field(env="SMTP_PASSWORD")
+    database_url: str = Field(env="DATABASE_URL")
+    secret_key: str = Field(env="SECRET_KEY")
 
     class Config:
         env_file = ".env"

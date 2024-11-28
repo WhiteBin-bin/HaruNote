@@ -16,7 +16,7 @@ user_router = APIRouter()
 hash_password = HashPassword()
 
 # 1. 사용자 등록
-@user_router.post("/Signup", status_code=status.HTTP_201_CREATED)
+@user_router.post("/signup", status_code=status.HTTP_201_CREATED)
 async def sign_new_user(data: UserSignUp, session=Depends(get_session)) -> dict:
     statement = select(User).where(User.email == data.email)
     user = session.exec(statement).first()
@@ -28,7 +28,7 @@ async def sign_new_user(data: UserSignUp, session=Depends(get_session)) -> dict:
     new_user = User(
         email=data.email,
         password=hash_password.hash_password(data.password),
-        username=data.username
+        username=data.username,
     )
     session.add(new_user)
     session.commit()
@@ -37,7 +37,7 @@ async def sign_new_user(data: UserSignUp, session=Depends(get_session)) -> dict:
 
 
 # 2. 로그인 처리
-@user_router.post("/Signin")
+@user_router.post("/signin")
 def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
     statement = select(User).where(User.email == data.email)
     user = session.exec(statement).first()
@@ -57,26 +57,24 @@ def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
     return {"message": "로그인에 성공했습니다.", "access_token": access_token}
 
 
-# 3. 이메일 검증 요청 엔드포인트
+# 3. 이메일 검증 요청
 @user_router.post("/request-email-verification")
 def request_email_verification(email: str, session: Session = Depends(get_session)):
-    #이메일 검증 요청
     user = session.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    token = create_email_verification_token(email)  # 검증 토큰 생성
-    send_verification_email(email, token)  # 검증 이메일 전송
+    token = create_email_verification_token(email)
+    send_verification_email(email, token)
 
     return {"message": "Verification email sent"}
 
 
-# 4. 이메일 검증 엔드포인트
+# 4. 이메일 검증
 @user_router.get("/verify-email")
 def verify_email(token: str = Query(...)):
-    #이메일 검증
     try:
-        email = verify_email_verification_token(token)  # 검증 토큰 확인
+        email = verify_email_verification_token(token)
         return {"message": f"Email {email} successfully verified"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -96,7 +94,7 @@ def create_page(
         public=page.public,
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        scheduled_at=page.scheduled_at or datetime.now(),  # 디폴트로 현재 시간 사용
+        scheduled_at=page.scheduled_at or datetime.now(),
         owner_id=current_user.id,
     )
     session.add(new_page)
@@ -117,8 +115,10 @@ def update_page(
     if not page:
         raise HTTPException(status_code=404, detail="Page not found")
 
-    if page.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="You can only update your own pages.")
+    if page.owner_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=403, detail="You do not have permission to update this page."
+        )
 
     page.title = updated_page.title
     page.content = updated_page.content
@@ -177,9 +177,34 @@ def delete_page(
     if not page:
         raise HTTPException(status_code=404, detail="Page not found")
 
-    if page.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="You can only delete your own pages.")
+    if page.owner_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=403, detail="You do not have permission to delete this page."
+        )
 
     session.delete(page)
     session.commit()
-    return {"message": "Page has been deleted."}
+    return {"message": f"Page {page_id} has been deleted."}
+
+
+# 9. 사용자 삭제
+@user_router.delete("/{user_id}")
+def delete_user(
+    user_id: int,
+    current_user: User = Depends(authenticate),
+    session: Session = Depends(get_session),
+):
+    user_to_delete = session.query(User).filter(User.id == user_id).first()
+    if not user_to_delete:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if current_user.id == user_id:
+        raise HTTPException(status_code=400, detail="You cannot delete yourself")
+
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Only admins can delete users")
+
+    session.delete(user_to_delete)
+    session.commit()
+    return {"message": f"User {user_id} has been deleted."}
+

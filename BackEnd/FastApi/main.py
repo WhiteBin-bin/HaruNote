@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from routes.users import user_router
+from routes.verify import router as verify_router
 from contextlib import asynccontextmanager
 from database.connection import conn
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +16,9 @@ app = FastAPI(lifespan=lifespan)
 
 # 사용자 라우터 등록
 app.include_router(user_router, prefix="/user")
+
+# 이메일 라우터 등록
+app.include_router(verify_router, prefix="/auth", tags=["Email Verification"])
 
 # CORS 설정: 로컬 프론트엔드와 연동 가능하도록 허용
 app.add_middleware(

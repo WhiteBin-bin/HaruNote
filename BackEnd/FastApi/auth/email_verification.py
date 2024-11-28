@@ -1,41 +1,37 @@
+from jose import jwt, JWTError, ExpiredSignatureError
 from datetime import datetime, timedelta
-from jose import jwt, JWTError
 from database.connection import Settings
 
 settings = Settings()
 
-# 이메일 검증 토큰 생성
 def create_email_verification_token(email: str, expire_minutes: int = 15) -> str:
-    """
-    이메일 검증용 JWT 토큰 생성
-    """
-    expire = datetime.utcnow() + timedelta(minutes=expire_minutes)
+    #이메일 검증 토큰 생성
+    now = datetime.utcnow()
+    expire = now + timedelta(minutes=expire_minutes)
     payload = {
         "sub": email,
-        "type": "email_verification",
+        "iat": now.timestamp(),
         "exp": expire.timestamp()
     }
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return jwt.encode(payload, settings.secret_key, algorithm="HS256")
 
-
-# 이메일 검증 토큰 검증
 def verify_email_verification_token(token: str) -> str:
-    """
-    이메일 검증용 JWT 토큰 검증
-    """
+    #이메일 검증 토큰 검증
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        if payload.get("type") != "email_verification":
-            raise ValueError("Invalid token type")
+        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+        exp = payload.get("exp")
+        sub = payload.get("sub")
 
-        exp_timestamp = payload.get("exp")
-        if exp_timestamp is None or datetime.utcnow() > datetime.utcfromtimestamp(exp_timestamp):
-            raise ValueError("Token has expired")
+        if not sub:
+            raise ValueError("Token payload missing 'sub' field")
+        if datetime.utcnow().timestamp() > exp:
+            raise ExpiredSignatureError("Token has expired")
 
-        email = payload.get("sub")
-        if email is None:
-            raise ValueError("Invalid token payload")
+        return sub
 
-        return email
+    except ExpiredSignatureError:
+        raise ValueError("Token has expired")
     except JWTError:
-        raise ValueError("Invalid or expired token")
+        raise ValueError("Invalid token format")
+
+
