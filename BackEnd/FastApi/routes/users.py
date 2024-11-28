@@ -1,5 +1,5 @@
-from typing import List, Dict, Any
-from fastapi import APIRouter, HTTPException, status, Depends, Query, UploadFile
+from typing import List, Dict, Any, Optional
+from fastapi import APIRouter, HTTPException, status, Depends, Query, File, UploadFile, Form
 from fastapi.responses import FileResponse
 from auth.authenticate import authenticate
 from auth.jwt_handler import create_jwt_token
@@ -92,27 +92,73 @@ def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
 
 
 # 3. 페이지 생성
-@user_router.post("/pages", response_model=Page)
-def create_page(
-    page: Page,
-    session=Depends(get_session),
-    current_user: User = Depends(authenticate),
+@user_router.post("/pages")
+async def create_page_with_file(
+    title: str = Form(...),
+    content: str = Form(...),
+    public: bool = Form(...),
+    scheduled_at: datetime = Form(None),
+    files: Optional[List[UploadFile]] = File(None),
+    session: Session = Depends(get_session),
+    current_user: User = Depends(authenticate)
 ):
+    # 새 페이지 생성
     new_page = Page(
         id=str(uuid4()),
-        title=page.title,
-        content=page.content,
-        public=page.public,
+        title=title,
+        content=content,
+        public=public,
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        scheduled_at=page.scheduled_at or datetime.now(),  # 디폴트로 현재 시간 사용
+        scheduled_at=scheduled_at or datetime.now(),
         owner_id=current_user.id,
     )
     session.add(new_page)
     session.commit()
     session.refresh(new_page)
-    return new_page
 
+    # 파일이 있으면 업로드 처리
+    file_data_list = []
+    if files:
+        for file in files:
+            try:
+                # 파일 저장
+                file_path = os.path.join(UPLOAD_DIR, file.filename)
+                with open(file_path, "wb") as f:
+                    f.write(await file.read())
+
+                file_data = FileModel(
+                    filename=file.filename,
+                    content_type=file.content_type,
+                    size=os.path.getsize(file_path),
+                    created_at=datetime.now(),
+                    page_id=new_page.id
+                )
+
+                session.add(file_data)
+                session.commit()
+                session.refresh(file_data)
+
+                file_data_list.append(file_data)
+            except Exception as e:
+                session.rollback()
+                raise HTTPException(status_code=500, detail=f"파일 업로드 중 오류 발생: {str(e)}")
+
+    # 새 페이지와 업로드된 파일들을 함께 반환
+    return {
+        "id": new_page.id,
+        "title": new_page.title,
+        "content": new_page.content,
+        "public": new_page.public,
+        "created_at": new_page.created_at,
+        "updated_at": new_page.updated_at,
+        "scheduled_at": new_page.scheduled_at,
+        "owner_id": new_page.owner_id,
+        "uploaded_files": [
+            {"filename": file.filename, "content_type": file.content_type, "size": file.size}
+            for file in file_data_list
+        ]
+    }
 
 # #4.모든 페이지 조회
 # @user_router.get("/pages", response_model=List[Page])
@@ -129,12 +175,10 @@ def get_public_pages(session=Depends(get_session)):
 
 
 #5.특정 페이지 조회
-@user_router.get("/pages/")
 def get_pages_by_title(
         title: str = Query(..., description="조회할 페이지의 제목"),
         session: Session = Depends(get_session),
         current_user: User = Depends(authenticate),
-        filename: str = Query(None, description="조회할 파일의 이름")
 ):
     # 데이터베이스에서 제목으로 페이지 조회
     pages = session.query(Page).filter(Page.title == title).all()
@@ -165,7 +209,8 @@ def get_pages_by_title(
             "updated_at": page.updated_at,
             "scheduled_at": page.scheduled_at,
             "owner_id": page.owner_id,
-            "filename": filename if filename else None
+            # page.files에서 파일 이름만 추출 (파일이 없으면 빈 리스트 반환)
+            "file_names": [file.filename for file in page.files] if page.files else []
         }
         response_data.append(page_data)
 
@@ -371,35 +416,39 @@ def get_sorted_user_ids(
         sorted_user_ids = sorted(user_ids_list, reverse=True)
     return sorted_user_ids
 
-#14.파일 업로드 기능
-@user_router.post("/upload", response_model=FileModel)
-async def upload_file(file: UploadFile, session: Session = Depends(get_session)):
-    try:
-        # 파일 저장
-        file_path = os.path.join(UPLOAD_DIR, file.filename)
-        with open(file_path, "wb") as f:
-            f.write(await file.read())
-
-        # 메타데이터만 DB에 저장
-        file_data = FileModel(
-            filename=file.filename,
-            content_type=file.content_type,
-            size=os.path.getsize(file_path),
-            created_at=datetime.now()
-        )
-
-        session.add(file_data)
-        session.commit()
-        session.refresh(file_data)
-
-        # 파일을 제공할 수 있는 URL 반환
-        file_url = f"http://localhost:8000/files/{file.filename}"
-        return {"file_url": file_url, **file_data.dict()}
-
-    except Exception as e:
-        session.rollback()
-        logging.error(f"파일 업로드 중 오류 발생: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"파일 업로드 중 오류 발생: {str(e)}")
+# #14.파일 업로드 기능
+# @user_router.post("/upload", response_model=FileModel)
+# async def upload_file(file: UploadFile, page_id: str, session: Session = Depends(get_session)):
+#     try:
+#         # 페이지가 존재하는지 확인
+#         page = session.query(Page).filter(Page.id == page_id).first()
+#         if not page:
+#             raise HTTPException(status_code=404, detail="페이지가 존재하지 않습니다.")
+#
+#         # 파일 저장
+#         file_path = os.path.join(UPLOAD_DIR, file.filename)
+#         with open(file_path, "wb") as f:
+#             f.write(await file.read())
+#
+#         file_data = FileModel(
+#             filename=file.filename,
+#             content_type=file.content_type,
+#             size=os.path.getsize(file_path),
+#             created_at=datetime.now(),
+#             page_id=page_id  # 해당 파일이 속한 페이지 ID
+#         )
+#
+#         session.add(file_data)
+#         session.commit()
+#         session.refresh(file_data)
+#
+#         # 파일을 제공할 수 있는 URL 반환
+#         # file_url = f"http://localhost:8000/files/{file.filename}"
+#         # return {"file_url": file_url, **file_data.dict()}
+#
+#     except Exception as e:
+#         session.rollback()
+#         raise HTTPException(status_code=500, detail=f"파일 업로드 중 오류 발생: {str(e)}")
 
 #15.파일 가져오기 기능
 @user_router.get("/files/{filename}")

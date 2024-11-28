@@ -6,7 +6,9 @@
   <component name="ChangeListManager">
     <list default="true" id="6634c3e5-f6e5-4062-8e4f-e78a9190ba67" name="변경" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/models/users.py" beforeDir="false" afterPath="$PROJECT_DIR$/models/users.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/routes/users.py" beforeDir="false" afterPath="$PROJECT_DIR$/routes/users.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/바닷길.png" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -106,7 +108,11 @@
       <workItem from="1732723212766" duration="575000" />
       <workItem from="1732723875089" duration="1617000" />
       <workItem from="1732725660192" duration="847000" />
-      <workItem from="1732794533928" duration="5153000" />
+      <workItem from="1732794533928" duration="6802000" />
+      <workItem from="1732802483354" duration="2014000" />
+      <workItem from="1732804531641" duration="36000" />
+      <workItem from="1732804716703" duration="2036000" />
+      <workItem from="1732806894019" duration="1146000" />
     </task>
     <servers />
   </component>
@@ -118,12 +124,12 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/routes/users.py</url>
-          <line>270</line>
+          <line>279</line>
           <option name="timeStamp" value="1" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/routes/users.py</url>
-          <line>275</line>
+          <line>284</line>
           <option name="timeStamp" value="2" />
         </line-breakpoint>
       </breakpoints>

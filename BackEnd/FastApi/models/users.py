@@ -37,8 +37,10 @@ class Page(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.now)  # 생성 시간
     updated_at: Optional[datetime] = None  # 수정 시간
     scheduled_at: Optional[datetime] = None
-    owner_id: Optional[int] = Field(default=None, foreign_key="user.id")  # 페이지 소유자의 ID
-    owner: Optional[User] = Relationship( back_populates="pages") # 페이지 소유자와의 관계
+    owner_id: int = Field(foreign_key="user.id")  # 페이지 소유자의 ID, Optional 제거
+    owner: User = Relationship(back_populates="pages")  # 페이지 소유자와의 관계
+    files: List["FileModel"] = Relationship(back_populates="page")  # 수정: FileModel과의 관계
+
 
 class FileModel(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -47,3 +49,5 @@ class FileModel(SQLModel, table=True):
     size: int = Field(..., ge=0)  # 0 이상의 값만 허용
     content: Optional[bytes] = Field(default=None)  # 바이트 데이터 저장 가능
     created_at: datetime = Field(default_factory=datetime.now)  # 생성 시간
+    page_id: Optional[str] = Field(default=None, foreign_key="page.id")  # 페이지의 외래 키
+    page: Optional[Page] = Relationship(back_populates="files")
