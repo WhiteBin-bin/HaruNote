@@ -66,7 +66,7 @@ def send_test_email(recipient_email: str, subject: str, body: str):
 if __name__ == "__main__":
     try:
         # 테스트 이메일 정보
-        test_recipient = "eunguin0623@gmail.com"
+        test_recipient = "theman0149@gmail.com"
         test_subject = "테스트 이메일"
         test_body = "이 이메일은 SMTP 설정 테스트를 위해 전송되었습니다."
 

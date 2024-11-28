@@ -1,61 +1,52 @@
 from fastapi import APIRouter, HTTPException, Query, Depends
-from auth.email_handler import send_verification_email
-from auth.email_verification import create_email_verification_token, verify_email_verification_token
 from sqlmodel import Session
 from models.users import User
 from database.connection import get_session
+from auth.email_handler import send_verification_email
+from auth.email_verification import EmailVerification
 import logging
+
+# 로깅 설정
+logging.basicConfig(level=logging.INFO)
+
+# 설정
+email_verification = EmailVerification(secret_key="your_very_secure_secret_key")
 
 router = APIRouter()
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-
 @router.post("/request-email-verification")
 def request_email_verification(email: str, session: Session = Depends(get_session)):
-    """
-    이메일 검증 요청
-    """
-    logging.info(f"Received email verification request for: {email}")
-
-    # 사용자 검색
+    """이메일 인증 요청"""
     user = session.query(User).filter(User.email == email).first()
     if not user:
-        logging.error(f"No user found with email: {email}")
         raise HTTPException(status_code=404, detail="User not found")
 
-    try:
-        # 검증 토큰 생성
-        token = create_email_verification_token(email)
-        verification_url = f"http://localhost:8000/verify-email?token={token}"
-        logging.info(f"Generated verification URL: {verification_url}")
+    token = email_verification.create_token(email)
+    verification_url = f"http://localhost:8000/verify-email?token={token}"
+    send_verification_email(email, verification_url)
+    logging.info(f"Verification email sent to {email}")
 
-        # 이메일 전송
-        send_verification_email(email, verification_url)
-        logging.info(f"Verification email sent to: {email}")
-
-    except Exception as e:
-        # 에러 발생 시 로그 출력
-        logging.error(f"Error sending verification email: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
-
-    return {"message": "Verification email sent"}
+    return {"message": "Verification email sent."}
 
 @router.get("/verify-email")
 def verify_email(token: str = Query(...), session: Session = Depends(get_session)):
-    """
-    이메일 검증
-    """
+    """이메일 인증 처리"""
     try:
-        email = verify_email_verification_token(token)
+        email = email_verification.verify_token(token)
         user = session.query(User).filter(User.email == email).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # 이메일 검증 상태 업데이트
-        user.is_verified = True
-        session.add(user)
-        session.commit()
+        if user.is_verified:
+            return {"message": "Email already verified"}
 
-        return {"message": f"Email {email} successfully verified"}
+        user.is_verified = True
+        session.commit()
+        logging.info(f"Email verified successfully for {email}")
+        return {"message": "Email verified successfully"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+
+

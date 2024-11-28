@@ -16,16 +16,18 @@ class Settings(BaseSettings):
     secret_key: str = Field(env="SECRET_KEY")
 
     class Config:
-        env_file = ".env"
+        env_file = ".env"  # .env 파일 자동 로드
 
-
+# Pydantic Settings 인스턴스 생성
 settings = Settings()
+
+# SQLModel 엔진 설정
 engine_url = create_engine(settings.DATABASE_URL, echo=True)
 
 def conn():
     SQLModel.metadata.create_all(engine_url)
 
-
 def get_session():
     with Session(engine_url) as session:
         yield session
+

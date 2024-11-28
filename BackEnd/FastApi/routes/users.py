@@ -1,9 +1,9 @@
-from typing import List, Optional
+from typing import List
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 from auth.authenticate import authenticate
 from auth.jwt_handler import create_jwt_token
-from auth.email_verification import create_email_verification_token, verify_email_verification_token
 from auth.email_handler import send_verification_email
+from auth.email_verification import EmailVerification
 from models.users import Page, User, UserSignIn, UserSignUp
 from database.connection import get_session
 from sqlmodel import select
@@ -11,18 +11,38 @@ from auth.hash_password import HashPassword
 from uuid import uuid4
 from datetime import datetime
 from sqlalchemy.orm import Session
+import logging
+
+# 로깅 설정
+logging.basicConfig(level=logging.INFO)
+
+# 이메일 인증 클래스 초기화
+SECRET_KEY = "your_very_secure_secret_key"
+email_verification = EmailVerification(secret_key=SECRET_KEY)
 
 user_router = APIRouter()
 hash_password = HashPassword()
 
-# 1. 사용자 등록
+# 공통 로직: 페이지 소유권 확인
+def verify_page_ownership(page, current_user):
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+    if page.owner_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=403, detail="You do not have permission to perform this action."
+        )
+
+# 사용자 등록
 @user_router.post("/signup", status_code=status.HTTP_201_CREATED)
 async def sign_new_user(data: UserSignUp, session=Depends(get_session)) -> dict:
+    if not data.email or not data.password:
+        raise HTTPException(status_code=400, detail="Email and password are required.")
+    
     statement = select(User).where(User.email == data.email)
     user = session.exec(statement).first()
     if user:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="동일한 사용자가 존재합니다."
+            status_code=status.HTTP_409_CONFLICT, detail="A user with this email already exists."
         )
 
     new_user = User(
@@ -32,11 +52,10 @@ async def sign_new_user(data: UserSignUp, session=Depends(get_session)) -> dict:
     )
     session.add(new_user)
     session.commit()
+    logging.info(f"New user registered: {data.email}")
+    return {"message": "User successfully registered."}
 
-    return {"message": "정상적으로 등록되었습니다."}
-
-
-# 2. 로그인 처리
+# 로그인 처리
 @user_router.post("/signin")
 def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
     statement = select(User).where(User.email == data.email)
@@ -44,43 +63,67 @@ def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="일치하는 사용자가 존재하지 않습니다.",
+            detail="User not found.",
         )
 
     if not hash_password.verify_password(data.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="패스워드가 일치하지 않습니다.",
+            detail="Incorrect password.",
         )
 
     access_token = create_jwt_token(email=user.email, user_id=user.id)
-    return {"message": "로그인에 성공했습니다.", "access_token": access_token}
+    logging.info(f"User {user.email} signed in.")
+    return {"message": "Login successful.", "access_token": access_token}
 
-
-# 3. 이메일 검증 요청
+# 이메일 인증 요청
 @user_router.post("/request-email-verification")
 def request_email_verification(email: str, session: Session = Depends(get_session)):
+    """
+    이메일 인증 요청
+    """
+    logging.info(f"Email verification request received for email: {email}")
+
     user = session.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    token = create_email_verification_token(email)
-    send_verification_email(email, token)
-
-    return {"message": "Verification email sent"}
-
-
-# 4. 이메일 검증
-@user_router.get("/verify-email")
-def verify_email(token: str = Query(...)):
     try:
-        email = verify_email_verification_token(token)
-        return {"message": f"Email {email} successfully verified"}
+        token = email_verification.create_token(email)
+        verification_url = f"http://localhost:8000/verify-email?token={token}"
+        logging.info(f"Generated verification URL: {verification_url}")
+        send_verification_email(email, verification_url)
+    except Exception as e:
+        logging.error(f"Error during email verification process: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send verification email")
+
+    return {"message": "Verification email sent successfully."}
+
+# 이메일 인증 처리
+@user_router.get("/verify-email")
+def verify_email(token: str = Query(...), session: Session = Depends(get_session)):
+    """
+    이메일 인증 처리
+    """
+    try:
+        email = email_verification.verify_token(token)
+        logging.info(f"Token verified successfully for email: {email}")
+
+        user = session.query(User).filter(User.email == email).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        if user.is_verified:
+            return {"message": "Email already verified"}
+
+        user.is_verified = True
+        session.commit()
+        logging.info(f"Email verified successfully for {email}")
+        return {"message": "Email verified successfully"}
     except ValueError as e:
+        logging.error(f"Token verification failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
-
-# 5. 페이지 생성
+# 페이지 생성
 @user_router.post("/pages", response_model=Page)
 def create_page(
     page: Page,
@@ -100,10 +143,10 @@ def create_page(
     session.add(new_page)
     session.commit()
     session.refresh(new_page)
+    logging.info(f"Page created by {current_user.email}: {page.title}")
     return new_page
 
-
-# 6. 페이지 수정
+# 페이지 수정
 @user_router.put("/pages/{page_id}", response_model=Page)
 def update_page(
     page_id: str,
@@ -112,13 +155,7 @@ def update_page(
     current_user: User = Depends(authenticate),
 ):
     page = session.get(Page, page_id)
-    if not page:
-        raise HTTPException(status_code=404, detail="Page not found")
-
-    if page.owner_id != current_user.id and not current_user.is_admin:
-        raise HTTPException(
-            status_code=403, detail="You do not have permission to update this page."
-        )
+    verify_page_ownership(page, current_user)
 
     page.title = updated_page.title
     page.content = updated_page.content
@@ -131,10 +168,10 @@ def update_page(
     session.add(page)
     session.commit()
     session.refresh(page)
+    logging.info(f"Page updated by {current_user.email}: {page.title}")
     return page
 
-
-# 7. 캘린더 뷰
+# 캘린더 뷰
 @user_router.get("/pages/calendar-view", response_model=List[dict])
 def get_calendar_view(
     start_date: datetime,
@@ -142,6 +179,9 @@ def get_calendar_view(
     session=Depends(get_session),
     current_user: User = Depends(authenticate),
 ):
+    if start_date > end_date:
+        raise HTTPException(status_code=400, detail="Start date cannot be after end date.")
+
     statement = select(Page).where(Page.scheduled_at.between(start_date, end_date))
     pages = session.exec(statement).all()
 
@@ -163,10 +203,10 @@ def get_calendar_view(
             "owner_id": page.owner_id,
         })
 
+    logging.info(f"Calendar view retrieved for {current_user.email}.")
     return [{"date": key, "pages": value} for key, value in sorted(calendar_data.items())]
 
-
-# 8. 페이지 삭제
+# 페이지 삭제
 @user_router.delete("/pages/{page_id}")
 def delete_page(
     page_id: str,
@@ -174,20 +214,14 @@ def delete_page(
     current_user: User = Depends(authenticate),
 ):
     page = session.get(Page, page_id)
-    if not page:
-        raise HTTPException(status_code=404, detail="Page not found")
-
-    if page.owner_id != current_user.id and not current_user.is_admin:
-        raise HTTPException(
-            status_code=403, detail="You do not have permission to delete this page."
-        )
+    verify_page_ownership(page, current_user)
 
     session.delete(page)
     session.commit()
+    logging.info(f"Page {page_id} deleted by {current_user.email}.")
     return {"message": f"Page {page_id} has been deleted."}
 
-
-# 9. 사용자 삭제
+# 사용자 삭제
 @user_router.delete("/{user_id}")
 def delete_user(
     user_id: int,
@@ -206,5 +240,8 @@ def delete_user(
 
     session.delete(user_to_delete)
     session.commit()
+    logging.info(f"User {user_id} deleted by admin {current_user.email}.")
     return {"message": f"User {user_id} has been deleted."}
+
+
 

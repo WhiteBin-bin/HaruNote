@@ -61,7 +61,7 @@ if __name__ == "__main__":
     try:
         # JWT 생성
         print("JWT 토큰 생성 중...")
-        token = create_jwt_token("eun062323@gmail.com", 42)
+        token = create_jwt_token("", 42)
         print("Generated Token:", token)
 
         # JWT 검증
