@@ -63,6 +63,7 @@ async def sign_new_user(data: UserSignUp, session=Depends(get_session)) -> dict:
 #     access_token = create_jwt_token(email=user.email, user_id=user.id)
 #     return {"message": "로그인에 성공했습니다.", "access_token": access_token}
 
+#2.로그인 처리
 @user_router.post("/Signin")
 def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
     statement = select(User).where(User.email == data.email)
@@ -90,9 +91,6 @@ def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
     }
 
 
-
-
-#3.페이지 생성
 # 3. 페이지 생성
 @user_router.post("/pages", response_model=Page)
 def create_page(
@@ -116,13 +114,13 @@ def create_page(
     return new_page
 
 
-#4.모든 페이지 조회
+# #4.모든 페이지 조회
 # @user_router.get("/pages", response_model=List[Page])
 # def get_pages(session=Depends(get_session)):
 #     pages = session.query(Page).all()  # 모든 페이지 조회
 #     return pages
 
-#4. 공개된 페이지 조회 (public이 True인 경우만)
+#5. 공개된 페이지 조회 (public이 True인 경우만)
 @user_router.get("/pages", response_model=List[Page])
 def get_public_pages(session=Depends(get_session)):
     # 공개된 페이지만 조회
@@ -140,12 +138,14 @@ def get_pages_by_title(
 ):
     # 데이터베이스에서 제목으로 페이지 조회
     pages = session.query(Page).filter(Page.title == title).all()
+    print(f"Queried Pages: {pages}")  # 디버깅: 조회된 페이지 확인
 
     if not pages:
         raise HTTPException(status_code=404, detail="No pages found with the given title")
 
     # 비공개 페이지 접근 권한 확인
     filtered_pages = [page for page in pages if page.public or page.owner_id == current_user.id]
+    print(f"Filtered Pages: {filtered_pages}")  # 디버깅: 필터링 후 페이지 확인
 
     if not filtered_pages:
         raise HTTPException(
@@ -163,11 +163,13 @@ def get_pages_by_title(
             "public": page.public,
             "created_at": page.created_at,
             "updated_at": page.updated_at,
+            "scheduled_at": page.scheduled_at,
             "owner_id": page.owner_id,
-            "file_path": os.path.join(UPLOAD_DIR, filename) if filename else None
+            "filename": filename if filename else None
         }
         response_data.append(page_data)
 
+    print(f"Response Data: {response_data}")  # 디버깅: 최종 응답 데이터 확인
     return response_data
 
 #6.날짜별로 그룹화
@@ -181,7 +183,7 @@ def get_calendar_view(
     # 지정된 기간 내의 페이지 가져오기
     pages = (
         session.query(Page)
-        .filter(Page.updated_at.between(start_date, end_date))  # 날짜 범위 필터링
+        .filter(Page.scheduled_at.between(start_date, end_date))  # 날짜 범위 필터링
         .all()
     )
 
@@ -224,10 +226,6 @@ def update_page(page_id: str, updated_page: Page, session=Depends(get_session), 
     # 페이지 소유자만 수정 가능
     if page.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="You can only update your own pages.")
-
-    # owner_id는 변경되지 않도록 방지
-    if updated_page.owner_id != page.owner_id:
-        raise HTTPException(status_code=400, detail="You cannot change the owner of the page.")
 
     page.title = updated_page.title
     page.content = updated_page.content
