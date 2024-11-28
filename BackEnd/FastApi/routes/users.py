@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Any
 from fastapi import APIRouter, HTTPException, status, Depends, Query, UploadFile
 from fastapi.responses import FileResponse
 from auth.authenticate import authenticate
@@ -128,12 +128,12 @@ def get_public_pages(session=Depends(get_session)):
 
 
 #5.특정 페이지 조회
-@user_router.get("/pages/", response_model=List[Page])
+@user_router.get("/pages/")
 def get_pages_by_title(
         title: str = Query(..., description="조회할 페이지의 제목"),
         session: Session = Depends(get_session),
-        current_user: User = Depends(authenticate),  # 인증된 사용자
-        filename: str = Query(None, description="조회할 파일의 이름")  # 파일 이름을 쿼리 파라미터로 받음
+        current_user: User = Depends(authenticate),
+        filename: str = Query(None, description="조회할 파일의 이름")
 ):
     # 데이터베이스에서 제목으로 페이지 조회
     pages = session.query(Page).filter(Page.title == title).all()
@@ -150,15 +150,22 @@ def get_pages_by_title(
             detail="You are not authorized to access the requested pages"
         )
 
-    # 파일이 요청된 경우 파일 경로 확인 및 반환
-    if filename:
-        file_path = os.path.join(UPLOAD_DIR, filename)
-        if os.path.exists(file_path):
-            return FileResponse(file_path, media_type="application/octet-stream")
-        raise HTTPException(status_code=404, detail="File not found")
+    # 파일 경로를 포함하여 응답 데이터 구성
+    response_data: List[Dict[str, Any]] = []
+    for page in filtered_pages:
+        page_data = {
+            "id": page.id,
+            "title": page.title,
+            "content": page.content,
+            "public": page.public,
+            "created_at": page.created_at,
+            "updated_at": page.updated_at,
+            "owner_id": page.owner_id,
+            "file_path": os.path.join(UPLOAD_DIR, filename) if filename else None
+        }
+        response_data.append(page_data)
 
-    return filtered_pages
-
+    return response_data
 
 #6.날짜별로 그룹화
 @user_router.get("/pages/calendar-view", response_model=List[dict])

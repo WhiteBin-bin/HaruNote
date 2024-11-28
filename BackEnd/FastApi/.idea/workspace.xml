@@ -6,6 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="6634c3e5-f6e5-4062-8e4f-e78a9190ba67" name="변경" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/models/users.py" beforeDir="false" afterPath="$PROJECT_DIR$/models/users.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/routes/users.py" beforeDir="false" afterPath="$PROJECT_DIR$/routes/users.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -117,12 +118,12 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/routes/users.py</url>
-          <line>242</line>
+          <line>269</line>
           <option name="timeStamp" value="1" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/routes/users.py</url>
-          <line>247</line>
+          <line>274</line>
           <option name="timeStamp" value="2" />
         </line-breakpoint>
       </breakpoints>
