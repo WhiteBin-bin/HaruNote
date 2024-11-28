@@ -9,7 +9,7 @@ from sqlmodel import select
 from auth.hash_password import HashPassword
 from uuid import uuid4
 from datetime import datetime
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 import os
 
 
@@ -175,47 +175,58 @@ def get_public_pages(session=Depends(get_session)):
 
 
 #5.특정 페이지 조회
-def get_pages_by_title(
+@user_router.get("/pages/")
+async def get_pages_by_title(
         title: str = Query(..., description="조회할 페이지의 제목"),
         session: Session = Depends(get_session),
         current_user: User = Depends(authenticate),
 ):
-    # 데이터베이스에서 제목으로 페이지 조회
-    pages = session.query(Page).filter(Page.title == title).all()
-    print(f"Queried Pages: {pages}")  # 디버깅: 조회된 페이지 확인
-
-    if not pages:
-        raise HTTPException(status_code=404, detail="No pages found with the given title")
-
-    # 비공개 페이지 접근 권한 확인
-    filtered_pages = [page for page in pages if page.public or page.owner_id == current_user.id]
-    print(f"Filtered Pages: {filtered_pages}")  # 디버깅: 필터링 후 페이지 확인
-
-    if not filtered_pages:
-        raise HTTPException(
-            status_code=403,
-            detail="You are not authorized to access the requested pages"
+    try:
+        # 쿼리 수정
+        pages = (
+            session.query(Page)
+            .options(joinedload(Page.files))
+            .filter(Page.title == title)
+            .all()
         )
 
-    # 파일 경로를 포함하여 응답 데이터 구성
-    response_data: List[Dict[str, Any]] = []
-    for page in filtered_pages:
-        page_data = {
-            "id": page.id,
-            "title": page.title,
-            "content": page.content,
-            "public": page.public,
-            "created_at": page.created_at,
-            "updated_at": page.updated_at,
-            "scheduled_at": page.scheduled_at,
-            "owner_id": page.owner_id,
-            # page.files에서 파일 이름만 추출 (파일이 없으면 빈 리스트 반환)
-            "file_names": [file.filename for file in page.files] if page.files else []
-        }
-        response_data.append(page_data)
+        print(
+            f"SQL Query executed: {str(session.query(Page).options(joinedload(Page.files)).filter(Page.title == title))}")
+        print(f"Found pages: {pages}")
 
-    print(f"Response Data: {response_data}")  # 디버깅: 최종 응답 데이터 확인
-    return response_data
+        if not pages:
+            raise HTTPException(status_code=404, detail="페이지를 찾을 수 없습니다")
+
+        # 비공개 페이지 접근 권한 확인
+        filtered_pages = [page for page in pages if page.public or page.owner_id == current_user.id]
+
+        if not filtered_pages:
+            raise HTTPException(
+                status_code=403,
+                detail="페이지에 접근할 권한이 없습니다"
+            )
+
+        response_data = []
+        for page in filtered_pages:
+            print(f"Processing page {page.id} with files: {page.files}")  # 디버깅 로그
+            page_data = {
+                "id": page.id,
+                "title": page.title,
+                "content": page.content,
+                "public": page.public,
+                "created_at": page.created_at,
+                "updated_at": page.updated_at,
+                "scheduled_at": page.scheduled_at,
+                "owner_id": page.owner_id,
+                "file_names": [file.filename for file in (page.files or [])]
+            }
+            response_data.append(page_data)
+
+        return response_data
+
+    except Exception as e:
+        print(f"Error occurred: {str(e)}")  # 디버깅을 위한 에러 로그
+        raise HTTPException(status_code=500, detail=f"서버 오류가 발생했습니다: {str(e)}")
 
 #6.날짜별로 그룹화
 @user_router.get("/pages/calendar-view", response_model=List[dict])
