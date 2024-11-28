@@ -93,25 +93,28 @@ def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
 
 
 #3.페이지 생성
+# 3. 페이지 생성
 @user_router.post("/pages", response_model=Page)
 def create_page(
     page: Page,
     session=Depends(get_session),
-    current_user: User = Depends(authenticate)  # 인증된 사용자만 생성 가능
+    current_user: User = Depends(authenticate),
 ):
-    # 현재 시간을 가져온 뒤 replace()로 수정
     new_page = Page(
         id=str(uuid4()),
         title=page.title,
         content=page.content,
-        public=page.public,  # 공개 여부 설정
+        public=page.public,
         created_at=datetime.now(),
-        owner_id=current_user.id  # 인증된 사용자의 ID를 owner_id로 설정
+        updated_at=datetime.now(),
+        scheduled_at=page.scheduled_at or datetime.now(),  # 디폴트로 현재 시간 사용
+        owner_id=current_user.id,
     )
     session.add(new_page)
     session.commit()
     session.refresh(new_page)
     return new_page
+
 
 #4.모든 페이지 조회
 # @user_router.get("/pages", response_model=List[Page])
@@ -192,7 +195,7 @@ def get_calendar_view(
     # 날짜별로 페이지 그룹화
     calendar_data = {}
     for page in filtered_pages:
-        date_key = page.updated_at.date()  # 날짜만 추출
+        date_key = page.scheduled_at.date()  # 날짜만 추출
         if date_key not in calendar_data:
             calendar_data[date_key] = []
         calendar_data[date_key].append({
