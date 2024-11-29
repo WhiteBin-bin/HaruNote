@@ -1,7 +1,7 @@
 from typing import List,  Optional
 from fastapi import APIRouter, HTTPException, status, Depends, Query, File, UploadFile, Form, Response
 from auth.authenticate import authenticate
-from auth.jwt_handler import create_jwt_token
+from auth.jwt_handler import create_tokens, refresh_access_token
 from models.users import Page, User, UserSignIn, UserSignUp, FileModel
 from models.utils import generate_verification_code, send_email_verification
 from database.connection import get_session
@@ -101,16 +101,40 @@ def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
             detail="패스워드가 일치하지 않습니다.",
         )
 
-    # JWT 생성
-    access_token = create_jwt_token(email=user.email, user_id=user.id)
+    # Access Token과 Refresh Token 생성
+    tokens = create_tokens(email=user.email, user_id=user.id)
 
-    # 로그인 성공 응답 (토큰을 response body에 포함)
+    # 로그인 성공 응답
     return {
         "message": "로그인에 성공했습니다.",
-        "user_id": user.id,  # 로그인한 사용자의 ID
-        "is_admin": user.is_admin,  # 사용자의 권한
-        "access_token": access_token  # JWT 토큰을 응답에 포함
+        "user_id": user.id,
+        "is_admin": user.is_admin,
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens["refresh_token"]
     }
+
+#4.토큰 갱신
+@user_router.post("/refresh-token")
+async def refresh_token(
+        refresh_token: str = Form(...),
+        session: Session = Depends(get_session)
+) -> dict:
+    try:
+        # Refresh 토큰으로 새 Access 토큰 발급
+        new_access_token = refresh_access_token(refresh_token)
+
+        return {
+            "message": "토큰이 갱신되었습니다.",
+            "access_token": new_access_token
+        }
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="토큰 갱신에 실패했습니다."
+        )
 
 #4.페이지 생성
 @user_router.post("/pages")
