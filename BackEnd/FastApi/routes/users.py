@@ -76,7 +76,7 @@ async def verify_signup_code(code: str, session=Depends(get_session)):
 
 #3.로그인 처리
 @user_router.post("/Signin")
-def sign_in(data: UserSignIn, session=Depends(get_session), response: Response = None) -> dict:
+def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
     # 이메일 형식 검증
     if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', data.email):
         raise HTTPException(
@@ -104,21 +104,12 @@ def sign_in(data: UserSignIn, session=Depends(get_session), response: Response =
     # JWT 생성
     access_token = create_jwt_token(email=user.email, user_id=user.id)
 
-    # JWT 토큰을 쿠키에 저장
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=False,
-        max_age=timedelta(hours=1),  # 만료 시간 설정 (예: 1시간)
-        expires=timedelta(hours=1),  # 쿠키 만료 시간 설정 (예: 1시간)
-    )
-
-    # 로그인 성공 응답
+    # 로그인 성공 응답 (토큰을 response body에 포함)
     return {
         "message": "로그인에 성공했습니다.",
         "user_id": user.id,  # 로그인한 사용자의 ID
-        "is_admin": user.is_admin  # 사용자의 권한
+        "is_admin": user.is_admin,  # 사용자의 권한
+        "access_token": access_token  # JWT 토큰을 응답에 포함
     }
 
 #4.페이지 생성

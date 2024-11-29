@@ -20,7 +20,6 @@ app.include_router(user_router, prefix="/user")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],  # React 등 프론트엔드 도메인 허용
-    allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE", "PUT", "OPTIONS"],
     allow_headers=["*"],
 )

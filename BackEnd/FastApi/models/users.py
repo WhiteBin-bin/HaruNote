@@ -1,5 +1,5 @@
 from pydantic import EmailStr
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime
 
