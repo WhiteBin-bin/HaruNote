@@ -45,6 +45,7 @@ class Page(SQLModel, table=True):
 class FileModel(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     filename: str = Field(..., index=True, max_length=1024)
+    fileurl: str = Field(..., index=True, max_length=1024)
     content_type: Optional[str] = Field(..., max_length=1024)
     size: int = Field(..., ge=0)  # 0 이상의 값만 허용
     content: Optional[bytes] = Field(default=None)  # 바이트 데이터 저장 가능
