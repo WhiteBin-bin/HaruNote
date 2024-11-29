@@ -12,6 +12,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session, joinedload
 from urllib.parse import unquote
 import os
+import re
 
 
 user_router = APIRouter()
@@ -68,6 +69,11 @@ async def sign_new_user(data: UserSignUp, session=Depends(get_session)) -> dict:
 #2.로그인 처리
 @user_router.post("/Signin")
 def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
+    if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', data.email):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="올바르지 않은 이메일 형식입니다."
+        )
     statement = select(User).where(User.email == data.email)
     user = session.exec(statement).first()
     if not user:
