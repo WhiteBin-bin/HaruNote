@@ -131,6 +131,7 @@ async def create_page_with_file(
                     f.write(await file.read())
 
                 file_data = FileModel(
+                    fileurl=file_path,
                     filename=file.filename,
                     content_type=file.content_type,
                     size=os.path.getsize(file_path),
@@ -158,7 +159,7 @@ async def create_page_with_file(
         "scheduled_at": new_page.scheduled_at,
         "owner_id": new_page.owner_id,
         "uploaded_files": [
-            {"filename": file.filename, "content_type": file.content_type, "size": file.size}
+            {"filename": file.filename, "content_type": file.content_type, "size": file.size, "fileurl": file.fileurl}
             for file in file_data_list
         ]
     }
