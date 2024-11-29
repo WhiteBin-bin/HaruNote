@@ -18,7 +18,7 @@ import re
 user_router = APIRouter()
 hash_password = HashPassword()
 UPLOAD_DIR = "uploads/"
-verification_codes = {} #이메일과 코드 저장
+verification_codes = {} # 이메일과 코드 저장
 signup_data = {}
 
 
@@ -115,7 +115,7 @@ def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
         "refresh_token": tokens["refresh_token"]
     }
 
-#4.토큰 갱신
+#3-1.토큰 갱신
 @user_router.post("/refresh-token")
 async def refresh_token(
         refresh_token: str = Form(...),
@@ -208,7 +208,7 @@ async def create_page_with_file(
         ]
     }
 
-#5. 공개된 페이지 조회 (public이 True인 경우만)
+#5.공개된 페이지 조회 (public이 True인 경우만)
 @user_router.get("/pages", response_model=List[Page])
 def get_public_pages(session=Depends(get_session)):
     # 공개된 페이지만 조회

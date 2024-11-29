@@ -34,13 +34,13 @@ class Page(SQLModel, table=True):
     scheduled_at: Optional[datetime] = None
     owner_id: int = Field(foreign_key="user.id")  # 페이지 소유자의 ID, Optional 제거
     owner: User = Relationship(back_populates="pages")  # 페이지 소유자와의 관계
-    files: List["FileModel"] = Relationship(back_populates="page")  # 수정: FileModel과의 관계
+    files: List["FileModel"] = Relationship(back_populates="page") # FileModel과의 관계
 
 
 class FileModel(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     filename: str = Field(..., index=True, max_length=1024)
-    fileurl: Optional[str] = Field(default=None, index=True, max_length=1024)  # NULL 허용으로 변경
+    fileurl: Optional[str] = Field(default=None, index=True, max_length=1024)  # NULL 허용
     content_type: Optional[str] = Field(..., max_length=1024)
     size: int = Field(..., ge=0)
     content: Optional[bytes] = Field(default=None)
