@@ -19,7 +19,7 @@ app.include_router(user_router, prefix="/user")
 # CORS 설정: 로컬 프론트엔드와 연동 가능하도록 허용
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React 등 프론트엔드 도메인 허용
+    allow_origins=["http://localhost:3000", "http://localhost:3000/"],  # React 등 프론트엔드 도메인 허용
     allow_methods=["GET", "POST", "DELETE", "PUT", "OPTIONS"],
     allow_credentials=True,
     allow_headers=["*"],
