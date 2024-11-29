@@ -1,16 +1,15 @@
-from typing import List, Dict, Any, Optional
+from typing import List,  Optional
 from fastapi import APIRouter, HTTPException, status, Depends, Query, File, UploadFile, Form, Response
-from fastapi.responses import FileResponse
 from auth.authenticate import authenticate
 from auth.jwt_handler import create_jwt_token
 from models.users import Page, User, UserSignIn, UserSignUp, FileModel
+from models.utils import generate_verification_code, send_email_verification
 from database.connection import get_session
 from sqlmodel import select
 from auth.hash_password import HashPassword
 from uuid import uuid4
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session, joinedload
-from urllib.parse import unquote
 import os
 import re
 
@@ -18,55 +17,64 @@ import re
 user_router = APIRouter()
 hash_password = HashPassword()
 UPLOAD_DIR = "uploads/"
+verification_codes = {} #이메일과 코드 저장
+signup_data = {}
 
-#1.사용자 등록
-@user_router.post("/Signup", status_code=status.HTTP_201_CREATED)
-async def sign_new_user(data: UserSignUp, session=Depends(get_session)) -> dict:
+
+#1.사용자 등록-이메일 보내기
+@user_router.post("/signup/request-code", status_code=status.HTTP_200_OK)
+async def request_signup_code(data: UserSignUp, session=Depends(get_session)) -> dict:
+    # 중복 이메일 확인
     statement = select(User).where(User.email == data.email)
-    user = session.exec(statement).first()
-    if user:
+    existing_user = session.exec(statement).first()
+    if existing_user:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="동일한 사용자가 존재합니다."
+            status_code=status.HTTP_409_CONFLICT, detail="이미 사용 중인 이메일입니다."
         )
 
+    # 인증 코드 생성
+    code = generate_verification_code()
+    verification_codes[data.email] = code  # 이메일과 인증 코드 매핑
+    signup_data[data.email] = data.dict()  # 회원가입 데이터를 임시 저장
+
+    # 이메일 전송
+    send_email_verification(data.email, code)
+
+    return {"message": "인증 코드가 이메일로 전송되었습니다."}
+
+#2.사용자 등록-숫자 랜덤으로 날라온거 입력
+@user_router.post("/signup/verify-code", status_code=status.HTTP_201_CREATED)
+async def verify_signup_code(code: str, session=Depends(get_session)):
+    # 인증 코드 확인
+    email = next((key for key, value in verification_codes.items() if value == code), None)
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="잘못된 인증 코드입니다."
+        )
+
+    # 회원가입 데이터 확인
+    if email not in signup_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="회원가입 데이터가 없습니다."
+        )
+
+    # 데이터베이스에 사용자 저장
+    user_data = signup_data[email]
     new_user = User(
-        email=data.email,
-        password=hash_password.hash_password(data.password),
-        username=data.username
+        email=email,
+        password=hash_password.hash_password(user_data["password"]),
+        username=user_data["username"]
     )
     session.add(new_user)
     session.commit()
 
-    return {"message": "정상적으로 등록되었습니다."}
+    # 인증 완료 후 데이터 삭제
+    del verification_codes[email]
+    del signup_data[email]
 
+    return {"message": "회원가입이 완료되었습니다."}
 
-#2.로그인 처리
-#2. 수동으로 관리자 설정 ex)SELECT id FROM user WHERE email = 'user@example.com';
-#UPDATE user
-#SET is_admin = true
-#WHERE id = 1;
-# @user_router.post("/Signin")
-# def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
-#     statement = select(User).where(User.email == data.email)
-#     user = session.exec(statement).first()
-#     if not user:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail="일치하는 사용자가 존재하지 않습니다.",
-#         )
-
-#     # if user.password != data.password:
-#     if hash_password.verify_password(data.password, user.password) == False:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="패스워드가 일치하지 않습니다.",
-#         )
-
-#     access_token = create_jwt_token(email=user.email, user_id=user.id)
-#     return {"message": "로그인에 성공했습니다.", "access_token": access_token}
-
-
-#2.로그인 처리
+#3.로그인 처리
 @user_router.post("/Signin")
 def sign_in(data: UserSignIn, session=Depends(get_session), response: Response = None) -> dict:
     # 이메일 형식 검증
@@ -113,8 +121,7 @@ def sign_in(data: UserSignIn, session=Depends(get_session), response: Response =
         "is_admin": user.is_admin  # 사용자의 권한
     }
 
-
-# 3.페이지 생성
+#4.페이지 생성
 @user_router.post("/pages")
 async def create_page_with_file(
     title: str = Form(...),
@@ -183,12 +190,6 @@ async def create_page_with_file(
             for file in file_data_list
         ]
     }
-
-# #4.모든 페이지 조회
-# @user_router.get("/pages", response_model=List[Page])
-# def get_pages(session=Depends(get_session)):
-#     pages = session.query(Page).all()  # 모든 페이지 조회
-#     return pages
 
 #5. 공개된 페이지 조회 (public이 True인 경우만)
 @user_router.get("/pages", response_model=List[Page])
@@ -293,7 +294,6 @@ def get_calendar_view(
 
     # 정렬된 데이터를 반환
     return [{"date": key, "pages": value} for key, value in sorted_calendar_data]
-
 
 
 #8.페이지 수정
@@ -406,25 +406,6 @@ async def update_page(
             detail=f"페이지 수정 중 오류가 발생했습니다: {str(e)}"
         )
 
-
-
-#8.페이지 삭제
-# @user_router.delete("/pages/{page_id}")
-# def delete_page(page_id: str, session=Depends(get_session), current_user: User = Depends(authenticate)):
-#     page = session.query(Page).filter(Page.id == page_id).first()
-#     if not page:
-#         raise HTTPException(status_code=404, detail="Page not found")
-
-#     # 페이지 소유자만 삭제 가능
-#     if page.owner_id != current_user.id:
-#         raise HTTPException(status_code=403, detail="You can only delete your own pages.")
-
-#     session.delete(page)
-#     session.commit()
-#     return {"message" : "Page has been deleted."}
-
-
-
 #9.페이지 리스트(제목으로만)로 정렬
 @user_router.get("/pages/titles", response_model=List[str])
 def get_sorted_page_titles(
@@ -455,7 +436,7 @@ def delete_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="관리자 권한이 필요합니다."
         )
-    
+
     # 삭제할 사용자 조회
     user_to_delete = session.query(User).filter(User.id == user_id).first()
     if not user_to_delete:
@@ -470,7 +451,7 @@ def delete_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="관리자는 자신을 삭제할 수 없습니다."
         )
-    
+
     session.delete(user_to_delete)
     session.commit()
     return {"message": "사용자가 성공적으로 삭제되었습니다."}
@@ -538,47 +519,6 @@ def get_sorted_user_details(
 
     return sorted_user_details
 
-# #14.파일 업로드 기능
-# @user_router.post("/upload", response_model=FileModel)
-# async def upload_file(file: UploadFile, page_id: str, session: Session = Depends(get_session)):
-#     try:
-#         # 페이지가 존재하는지 확인
-#         page = session.query(Page).filter(Page.id == page_id).first()
-#         if not page:
-#             raise HTTPException(status_code=404, detail="페이지가 존재하지 않습니다.")
-#
-#         # 파일 저장
-#         file_path = os.path.join(UPLOAD_DIR, file.filename)
-#         with open(file_path, "wb") as f:
-#             f.write(await file.read())
-#
-#         file_data = FileModel(
-#             filename=file.filename,
-#             content_type=file.content_type,
-#             size=os.path.getsize(file_path),
-#             created_at=datetime.now(),
-#             page_id=page_id  # 해당 파일이 속한 페이지 ID
-#         )
-#
-#         session.add(file_data)
-#         session.commit()
-#         session.refresh(file_data)
-#
-#         # 파일을 제공할 수 있는 URL 반환
-#         # file_url = f"http://localhost:8000/files/{file.filename}"
-#         # return {"file_url": file_url, **file_data.dict()}
-#
-#     except Exception as e:
-#         session.rollback()
-#         raise HTTPException(status_code=500, detail=f"파일 업로드 중 오류 발생: {str(e)}")
 
-#14.파일 가져오기 기능
-@user_router.get("/files/{filename}")
-async def get_file(filename: str):
-    decoded_filename = unquote(filename)
-    file_path = os.path.join(UPLOAD_DIR, decoded_filename)
-    if os.path.exists(file_path):
-        return FileResponse(file_path)
-    raise HTTPException(status_code=404, detail="File not found")
 
 

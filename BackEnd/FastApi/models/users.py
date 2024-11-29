@@ -1,12 +1,7 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import EmailStr
 from typing import Optional, List, TYPE_CHECKING
-from sqlalchemy import Column, JSON, Integer, LargeBinary
 from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime
-# 순환 참조 방지 
-if TYPE_CHECKING:
-    from models.events import Event
-
 
 
 class User(SQLModel, table=True):
