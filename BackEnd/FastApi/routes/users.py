@@ -101,7 +101,7 @@ def sign_in(data: UserSignIn, session=Depends(get_session), response: Response =
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True,  # HTTPS에서만 쿠키가 전송되도록 설정
+        secure=False,
         max_age=timedelta(hours=1),  # 만료 시간 설정 (예: 1시간)
         expires=timedelta(hours=1),  # 쿠키 만료 시간 설정 (예: 1시간)
     )
