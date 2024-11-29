@@ -304,70 +304,107 @@ async def update_page(
     content: str = Form(...),
     public: bool = Form(...),
     files: Optional[List[UploadFile]] = File(None),
+    delete_files: bool = Form(False),  # 파일 삭제 여부
     session: Session = Depends(get_session),
     current_user: User = Depends(authenticate)
 ):
-    # 페이지 존재 여부 확인
-    page = session.query(Page).filter(Page.id == page_id).first()
-    if not page:
-        raise HTTPException(status_code=404, detail="Page not found")
+    try:
+        # 페이지 존재 여부 확인
+        page = session.query(Page).filter(Page.id == page_id).first()
+        if not page:
+            raise HTTPException(status_code=404, detail="페이지를 찾을 수 없습니다.")
 
-    # 페이지 소유자만 수정 가능
-    if page.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="You can only update your own pages.")
+        # 페이지 소유자만 수정 가능
+        if page.owner_id != current_user.id:
+            raise HTTPException(status_code=403, detail="자신의 페이지만 수정할 수 있습니다.")
 
-    # 페이지 정보 업데이트
-    page.title = title
-    page.content = content
-    page.public = public
-    page.updated_at = datetime.now()
+        # 페이지 정보 업데이트
+        page.title = title
+        page.content = content
+        page.public = public
+        page.updated_at = datetime.now()
 
-    # 파일이 있으면 업로드 처리
-    file_data_list = []
-    if files:
-        for file in files:
-            try:
-                # 파일 저장
-                file_path = os.path.join(UPLOAD_DIR, file.filename)
-                with open(file_path, "wb") as f:
-                    f.write(await file.read())
+        file_data_list = []
 
-                file_data = FileModel(
-                    fileurl=file_path,
-                    filename=file.filename,
-                    content_type=file.content_type,
-                    size=os.path.getsize(file_path),
-                    created_at=datetime.now(),
-                    page_id=page.id
-                )
+        # 파일 삭제 요청이 있는 경우
+        if delete_files:
+            for existing_file in page.files:
+                if os.path.exists(existing_file.fileurl):
+                    os.remove(existing_file.fileurl)
+                session.delete(existing_file)
+            session.commit()
 
-                session.add(file_data)
-                session.commit()
-                session.refresh(file_data)
+        # 새 파일 업로드 요청이 있는 경우
+        elif files:
+            # 기존 파일 삭제
+            for existing_file in page.files:
+                if os.path.exists(existing_file.fileurl):
+                    os.remove(existing_file.fileurl)
+                session.delete(existing_file)
+            session.commit()
 
-                file_data_list.append(file_data)
-            except Exception as e:
-                session.rollback()
-                raise HTTPException(status_code=500, detail=f"파일 업로드 중 오류 발생: {str(e)}")
+            # 새 파일 업로드
+            for file in files:
+                try:
+                    # 파일 저장
+                    file_path = os.path.join(UPLOAD_DIR, file.filename)
+                    with open(file_path, "wb") as f:
+                        f.write(await file.read())
 
-    session.commit()
-    session.refresh(page)
+                    file_data = FileModel(
+                        fileurl=file_path,
+                        filename=file.filename,
+                        content_type=file.content_type,
+                        size=os.path.getsize(file_path),
+                        created_at=datetime.now(),
+                        page_id=page.id
+                    )
 
-    # 업데이트된 페이지와 새로 업로드된 파일들을 함께 반환
-    return {
-        "id": page.id,
-        "title": page.title,
-        "content": page.content,
-        "public": page.public,
-        "created_at": page.created_at,
-        "updated_at": page.updated_at,
-        "scheduled_at": page.scheduled_at,
-        "owner_id": page.owner_id,
-        "uploaded_files": [
-            {"filename": file.filename, "content_type": file.content_type, "size": file.size, "fileurl": file.fileurl}
-            for file in file_data_list
-        ]
-    }
+                    session.add(file_data)
+                    session.commit()
+                    session.refresh(file_data)
+
+                    file_data_list.append(file_data)
+                except Exception as e:
+                    session.rollback()
+                    raise HTTPException(status_code=500, detail=f"파일 업로드 중 오류 발생: {str(e)}")
+        else:
+            # 파일 변경이 없는 경우 기존 파일 정보 유지
+            file_data_list = page.files
+
+        session.commit()
+        session.refresh(page)
+
+        # 업데이트된 페이지와 파일 정보 반환
+        return {
+            "message": "페이지가 성공적으로 수정되었습니다.",
+            "page": {
+                "id": page.id,
+                "title": page.title,
+                "content": page.content,
+                "public": page.public,
+                "created_at": page.created_at,
+                "updated_at": page.updated_at,
+                "scheduled_at": page.scheduled_at,
+                "owner_id": page.owner_id,
+            },
+            "files": [
+                {
+                    "filename": file.filename,
+                    "content_type": file.content_type,
+                    "size": file.size,
+                    "fileurl": file.fileurl
+                }
+                for file in file_data_list
+            ] if file_data_list else []
+        }
+
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"페이지 수정 중 오류가 발생했습니다: {str(e)}"
+        )
 
 
 
