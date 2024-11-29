@@ -45,10 +45,10 @@ class Page(SQLModel, table=True):
 class FileModel(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     filename: str = Field(..., index=True, max_length=1024)
-    fileurl: str = Field(..., index=True, max_length=1024)
+    fileurl: Optional[str] = Field(default=None, index=True, max_length=1024)  # NULL 허용으로 변경
     content_type: Optional[str] = Field(..., max_length=1024)
-    size: int = Field(..., ge=0)  # 0 이상의 값만 허용
-    content: Optional[bytes] = Field(default=None)  # 바이트 데이터 저장 가능
-    created_at: datetime = Field(default_factory=datetime.now)  # 생성 시간
-    page_id: Optional[str] = Field(default=None, foreign_key="page.id")  # 페이지의 외래 키
+    size: int = Field(..., ge=0)
+    content: Optional[bytes] = Field(default=None)
+    created_at: datetime = Field(default_factory=datetime.now)
+    page_id: Optional[str] = Field(default=None, foreign_key="page.id")
     page: Optional[Page] = Relationship(back_populates="files")
