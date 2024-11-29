@@ -7,62 +7,90 @@ from database.connection import get_session
 from sqlmodel import select
 from auth.hash_password import HashPassword
 from uuid import uuid4
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-
+from models.utils import generate_verification_code, send_email_verification #이메일 인증
 
 user_router = APIRouter()
 hash_password = HashPassword()
+verification_codes = {}# 이메일과 코드 저장
+signup_data = {}
 
 
-#1.사용자 등록
-@user_router.post("/Signup", status_code=status.HTTP_201_CREATED)
-async def sign_new_user(data: UserSignUp, session=Depends(get_session)) -> dict:
+# #1.사용자 등록
+# @user_router.post("/Signup", status_code=status.HTTP_201_CREATED)
+# async def sign_new_user(data: UserSignUp, session=Depends(get_session)) -> dict:
+#     statement = select(User).where(User.email == data.email)
+#     user = session.exec(statement).first()
+#     if user:
+#         raise HTTPException(
+#             status_code=status.HTTP_409_CONFLICT, detail="동일한 사용자가 존재합니다."
+#         )
+
+#     new_user = User(
+#         email=data.email,
+#         password=hash_password.hash_password(data.password),
+#         username=data.username
+#     )
+#     session.add(new_user)
+#     session.commit()
+
+#     return {"message": "정상적으로 등록되었습니다."}
+
+@user_router.post("/signup/request-code", status_code=status.HTTP_200_OK)
+async def request_signup_code(data: UserSignUp, session=Depends(get_session)) -> dict:
+    # 중복 이메일 확인
     statement = select(User).where(User.email == data.email)
-    user = session.exec(statement).first()
-    if user:
+    existing_user = session.exec(statement).first()
+    if existing_user:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="동일한 사용자가 존재합니다."
+            status_code=status.HTTP_409_CONFLICT, detail="이미 사용 중인 이메일입니다."
         )
 
+    # 인증 코드 생성
+    code = generate_verification_code()
+    verification_codes[data.email] = code  # 이메일과 인증 코드 매핑
+    signup_data[data.email] = data.dict()  # 회원가입 데이터를 임시 저장
+
+    # 이메일 전송
+    send_email_verification(data.email, code)
+
+    return {"message": "인증 코드가 이메일로 전송되었습니다."}
+
+@user_router.post("/signup/verify-code", status_code=status.HTTP_201_CREATED)
+async def verify_signup_code(code: str, session=Depends(get_session)):
+    # 인증 코드 확인
+    email = next((key for key, value in verification_codes.items() if value == code), None)
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="잘못된 인증 코드입니다."
+        )
+
+    # 회원가입 데이터 확인
+    if email not in signup_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="회원가입 데이터가 없습니다."
+        )
+
+    # 데이터베이스에 사용자 저장
+    user_data = signup_data[email]
     new_user = User(
-        email=data.email,
-        password=hash_password.hash_password(data.password),
-        username=data.username
+        email=email,
+        password=hash_password.hash_password(user_data["password"]),
+        username=user_data["username"]
     )
     session.add(new_user)
     session.commit()
 
-    return {"message": "정상적으로 등록되었습니다."}
+    # 인증 완료 후 데이터 삭제
+    del verification_codes[email]
+    del signup_data[email]
+
+    return {"message": "회원가입이 완료되었습니다."}
+
 
 
 #2.로그인 처리
-# @user_router.post("/Signin")
-# def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
-#     statement = select(User).where(User.email == data.email)
-#     user = session.exec(statement).first()
-#     if not user:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail="일치하는 사용자가 존재하지 않습니다.",
-#         )
-
-#     if not hash_password.verify_password(data.password, user.password):
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="패스워드가 일치하지 않습니다.",
-#         )
-
-#     # JWT 생성
-#     access_token = create_jwt_token(email=user.email, user_id=user.id)
-
-#     # 사용자 ID를 포함한 응답 반환
-#     return {
-#         "message": "로그인에 성공했습니다.",
-#         "access_token": access_token,
-#         "user_id": user.id  # 로그인한 사용자의 ID 추가
-#     }
-
 @user_router.post("/Signin")
 def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
     statement = select(User).where(User.email == data.email)
@@ -91,6 +119,52 @@ def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
     }
 
 
+# #로그인 이메일에 번호 보내기
+# @user_router.post("/signin/request-code/")
+# async def request_signin_code(data: UserSignIn, session=Depends(get_session)):
+#     # 사용자 확인
+#     statement = select(User).where(User.email == data.email)
+#     user = session.exec(statement).first()
+#     if not user:
+#         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="사용자를 찾을 수 없습니다.")
+
+#     # 비밀번호 검증
+#     if not hash_password.verify_password(data.password, user.password):
+#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="비밀번호가 일치하지 않습니다.")
+
+#     # 인증 코드 생성 및 저장
+#     code = generate_verification_code()
+#     verification_codes[data.email] = code  # 만료 시간 제거
+#     send_email_verification(data.email, code)
+
+#     return {"message": "인증 코드가 이메일로 전송되었습니다."}
+
+# # 이메일 코드 받은거 입력
+# @user_router.post("/signin/verify-code/")
+# async def verify_signin_code(email: str, code: str, session=Depends(get_session)):
+#     # 인증 코드 확인
+#     if email not in verification_codes:
+#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="인증 코드가 존재하지 않습니다.")
+
+#     if verification_codes[email] != code:
+#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="잘못된 인증 코드입니다.")
+
+#     # 인증 성공, 코드 삭제
+#     del verification_codes[email]
+
+#     # 사용자 정보 확인
+#     statement = select(User).where(User.email == email)
+#     user = session.exec(statement).first()
+#     if not user:
+#         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="사용자를 찾을 수 없습니다.")
+
+#     # JWT 토큰 생성
+#     access_token = create_jwt_token(email=user.email, user_id=user.id)
+#     return {
+#         "message": "로그인에 성공하였습니다.",
+#         "access_token": access_token,
+#         "user_id": user.id
+#     }
 
 
 
