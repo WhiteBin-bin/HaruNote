@@ -10,6 +10,7 @@ from auth.hash_password import HashPassword
 from uuid import uuid4
 from datetime import datetime
 from sqlalchemy.orm import Session, joinedload
+from urllib.parse import unquote
 import os
 
 
@@ -462,7 +463,8 @@ def get_sorted_user_details(
 #14.파일 가져오기 기능
 @user_router.get("/files/{filename}")
 async def get_file(filename: str):
-    file_path = os.path.join(UPLOAD_DIR, filename)
+    decoded_filename = unquote(filename)
+    file_path = os.path.join(UPLOAD_DIR, decoded_filename)
     if os.path.exists(file_path):
         return FileResponse(file_path)
     raise HTTPException(status_code=404, detail="File not found")
