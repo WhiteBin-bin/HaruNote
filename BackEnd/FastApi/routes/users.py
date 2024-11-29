@@ -14,6 +14,7 @@ import os
 import re
 
 
+
 user_router = APIRouter()
 hash_password = HashPassword()
 UPLOAD_DIR = "uploads/"
@@ -75,7 +76,7 @@ async def verify_signup_code(code: str, session=Depends(get_session)):
     return {"message": "회원가입이 완료되었습니다."}
 
 #3.로그인 처리
-@user_router.post("/Signin")
+@user_router.post("/signin")
 def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
     # 이메일 형식 검증
     if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', data.email):
@@ -439,11 +440,11 @@ def get_sorted_page_titles(
 
 
 #10.관리자가 사용자 삭제
-@user_router.delete("/users/{user_id}", status_code=status.HTTP_200_OK)
-def delete_user(
-    user_id: int,
-    current_user: User = Depends(authenticate),  # 현재 인증된 사용자
-    session=Depends(get_session),
+@user_router.delete("/users/email/{email}", status_code=status.HTTP_200_OK)
+def delete_user_by_email(
+        email: str,
+        current_user: User = Depends(authenticate),  # 현재 인증된 사용자
+        session=Depends(get_session),
 ):
     # 관리자 권한 확인
     if not current_user.is_admin:
@@ -453,7 +454,7 @@ def delete_user(
         )
 
     # 삭제할 사용자 조회
-    user_to_delete = session.query(User).filter(User.id == user_id).first()
+    user_to_delete = session.query(User).filter(User.email == email).first()
     if not user_to_delete:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -461,7 +462,7 @@ def delete_user(
         )
 
     # 관리자 자신은 삭제할 수 없도록 방지
-    if current_user.id == user_id:
+    if current_user.email == email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="관리자는 자신을 삭제할 수 없습니다."
@@ -469,7 +470,7 @@ def delete_user(
 
     session.delete(user_to_delete)
     session.commit()
-    return {"message": "사용자가 성공적으로 삭제되었습니다."}
+    return {"message": f"{email} 유저가 성공적으로 삭제되었습니다."}
 
 
 #11.관리자 또는 페이지 소유자 페이지 삭제
