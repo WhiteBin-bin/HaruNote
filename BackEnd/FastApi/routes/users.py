@@ -109,6 +109,7 @@ def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
     return {
         "message": "로그인에 성공했습니다.",
         "user_id": user.id,
+        "email": user.email,
         "is_admin": user.is_admin,
         "access_token": tokens["access_token"],
         "refresh_token": tokens["refresh_token"]
