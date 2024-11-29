@@ -222,7 +222,7 @@ async def get_pages_by_title(
                 "scheduled_at": page.scheduled_at,
                 "owner_id": page.owner_id,
                 "file_names": [file.filename for file in (page.files or [])],
-                "file_url": [file.file_url for file in (page.files or [])]
+                "fileurl": [file.fileurl for file in (page.files or [])]  # file_url을 fileurl로 수정
             }
             response_data.append(page_data)
 
