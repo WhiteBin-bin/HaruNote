@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, status, Depends, Query, File, UploadFile, Form
+from fastapi import APIRouter, HTTPException, status, Depends, Query, File, UploadFile, Form, Response
 from fastapi.responses import FileResponse
 from auth.authenticate import authenticate
 from auth.jwt_handler import create_jwt_token
@@ -8,7 +8,7 @@ from database.connection import get_session
 from sqlmodel import select
 from auth.hash_password import HashPassword
 from uuid import uuid4
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session, joinedload
 from urllib.parse import unquote
 import os
@@ -68,20 +68,25 @@ async def sign_new_user(data: UserSignUp, session=Depends(get_session)) -> dict:
 
 #2.로그인 처리
 @user_router.post("/Signin")
-def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
+def sign_in(data: UserSignIn, session=Depends(get_session), response: Response = None) -> dict:
+    # 이메일 형식 검증
     if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', data.email):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="올바르지 않은 이메일 형식입니다."
         )
+
+    # 사용자 검색
     statement = select(User).where(User.email == data.email)
     user = session.exec(statement).first()
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="일치하는 사용자가 존재하지 않습니다.",
         )
 
+    # 패스워드 검증
     if not hash_password.verify_password(data.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -91,12 +96,21 @@ def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
     # JWT 생성
     access_token = create_jwt_token(email=user.email, user_id=user.id)
 
-    # 사용자 ID 및 is_admin 포함한 응답 반환
+    # JWT 토큰을 쿠키에 저장
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=True,  # HTTPS에서만 쿠키가 전송되도록 설정
+        max_age=timedelta(hours=1),  # 만료 시간 설정 (예: 1시간)
+        expires=timedelta(hours=1),  # 쿠키 만료 시간 설정 (예: 1시간)
+    )
+
+    # 로그인 성공 응답
     return {
         "message": "로그인에 성공했습니다.",
-        "access_token": access_token,
-        "user_id": user.id,  # 로그인한 사용자의 ID 추가
-        "is_admin": user.is_admin  # 사용자 권한 추가
+        "user_id": user.id,  # 로그인한 사용자의 ID
+        "is_admin": user.is_admin  # 사용자의 권한
     }
 
 
