@@ -63,6 +63,7 @@ async def sign_new_user(data: UserSignUp, session=Depends(get_session)) -> dict:
 #     access_token = create_jwt_token(email=user.email, user_id=user.id)
 #     return {"message": "로그인에 성공했습니다.", "access_token": access_token}
 
+
 #2.로그인 처리
 @user_router.post("/Signin")
 def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
@@ -83,15 +84,16 @@ def sign_in(data: UserSignIn, session=Depends(get_session)) -> dict:
     # JWT 생성
     access_token = create_jwt_token(email=user.email, user_id=user.id)
 
-    # 사용자 ID를 포함한 응답 반환
+    # 사용자 ID 및 is_admin 포함한 응답 반환
     return {
         "message": "로그인에 성공했습니다.",
         "access_token": access_token,
-        "user_id": user.id  # 로그인한 사용자의 ID 추가
+        "user_id": user.id,  # 로그인한 사용자의 ID 추가
+        "is_admin": user.is_admin  # 사용자 권한 추가
     }
 
 
-# 3. 페이지 생성
+# 3.페이지 생성
 @user_router.post("/pages")
 async def create_page_with_file(
     title: str = Form(...),
@@ -174,7 +176,7 @@ def get_public_pages(session=Depends(get_session)):
     return public_pages
 
 
-#5.특정 페이지 조회
+#6.특정 페이지 조회
 @user_router.get("/pages/")
 async def get_pages_by_title(
         title: str = Query(..., description="조회할 페이지의 제목"),
@@ -227,7 +229,7 @@ async def get_pages_by_title(
         print(f"Error occurred: {str(e)}")  # 디버깅을 위한 에러 로그
         raise HTTPException(status_code=500, detail=f"서버 오류가 발생했습니다: {str(e)}")
 
-#6.날짜별로 그룹화
+#7.날짜별로 그룹화
 @user_router.get("/pages/calendar-view", response_model=List[dict])
 def get_calendar_view(
         start_date: datetime,
@@ -271,7 +273,7 @@ def get_calendar_view(
 
 
 
-#7.페이지 수정
+#8.페이지 수정
 @user_router.put("/pages/{page_id}", response_model=Page)
 def update_page(page_id: str, updated_page: Page, session=Depends(get_session), current_user: User = Depends(authenticate)):
     page = session.query(Page).filter(Page.id == page_id).first()
@@ -327,7 +329,7 @@ def get_sorted_page_titles(
     return sorted_titles
 
 
-#10. 관리자가 사용자 삭제
+#10.관리자가 사용자 삭제
 @user_router.delete("/users/{user_id}", status_code=status.HTTP_200_OK)
 def delete_user(
     user_id: int,
@@ -361,7 +363,7 @@ def delete_user(
     return {"message": "사용자가 성공적으로 삭제되었습니다."}
 
 
-#11관리자 또는 페이지 소유자 페이지 삭제
+#11.관리자 또는 페이지 소유자 페이지 삭제
 @user_router.delete("/pages/{page_id}")
 def delete_page(
     page_id: str,
@@ -384,7 +386,7 @@ def delete_page(
     session.commit()
     return {"message": "Page  has been deleted."}
 
-#12 owner_Id가 만든 페이지 출력
+#12.owner_Id가 만든 페이지 출력
 @user_router.get("/pages/by-owner/{owner_id}", response_model=List[Page])
 def get_pages_by_owner(
     owner_id: int,
@@ -407,24 +409,21 @@ def get_pages_by_owner(
 
     return pages
 
-#13 User정보 id로 list 정렬
-@user_router.get("/users/ids", response_model=List[int])
-def get_sorted_user_ids(
-    order_by: str = Query("asc", enum=["asc", "desc"], description="정렬 순서: asc(오름차순) 또는 desc(내림차순)"),
+#13.User정보 username과 email로 list 정렬
+@user_router.get("/users/details", response_model=List[dict])
+def get_sorted_user_details(
     session: Session = Depends(get_session)
 ):
-    # User 테이블에서 모든 사용자 ID 가져오기
-    user_ids = session.query(User.id).all()
+    # User 테이블에서 username, email 가져오기 (is_admin이 False인 사용자만)
+    user_details = session.query(User.username, User.email).filter(User.is_admin == False).all()
 
-    # ID를 리스트로 변환
-    user_ids_list = [user_id[0] for user_id in user_ids]  # 튜플에서 값 추출
+    # 리스트로 변환
+    user_details_list = [{"username": detail[0], "email": detail[1]} for detail in user_details]
 
-    # 정렬
-    if order_by == "asc":
-        sorted_user_ids = sorted(user_ids_list)
-    else:
-        sorted_user_ids = sorted(user_ids_list, reverse=True)
-    return sorted_user_ids
+    # 무조건 오름차순으로 정렬
+    sorted_user_details = sorted(user_details_list, key=lambda x: x["username"])
+
+    return sorted_user_details
 
 # #14.파일 업로드 기능
 # @user_router.post("/upload", response_model=FileModel)
@@ -460,7 +459,7 @@ def get_sorted_user_ids(
 #         session.rollback()
 #         raise HTTPException(status_code=500, detail=f"파일 업로드 중 오류 발생: {str(e)}")
 
-#15.파일 가져오기 기능
+#14.파일 가져오기 기능
 @user_router.get("/files/{filename}")
 async def get_file(filename: str):
     file_path = os.path.join(UPLOAD_DIR, filename)
