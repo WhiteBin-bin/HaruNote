@@ -1,0 +1,147 @@
+.admin {
+  width: 90%;
+  max-width: 1200px;
+  margin: 20px auto;
+  font-family: "Arial", sans-serif;
+  color: #333;
+}
+
+.tab-header {
+  display: flex;
+  justify-content: flex-start;
+  border-bottom: 1px solid #ccc;
+  max-width: 1200px;
+}
+
+.tab-button {
+  position: relative;
+  padding: 7px 17px;
+  border: 1px solid #ccc;
+  border-bottom: none;
+  background-color: #f9f9f9;
+  cursor: pointer;
+  font-size: 14px;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  z-index: 1;
+}
+
+.tab-button.active {
+  background-color: #333;
+  color: white;
+  z-index: 2; /* 활성 탭을 앞으로 가져오기 */
+}
+
+.tab-button:not(.active):hover {
+  background-color: #ddd;
+}
+
+.tab-content {
+  padding: 20px;
+  background-color: #f9f9f9;
+  border: 1px solid #ccc;
+  border-top: none;
+}
+
+.list-containerAdm {
+  padding: 20px;
+  height: 510px;
+  background-color: rgb(247, 247, 245);
+}
+
+.list-containerAdm h2 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+/* 테이블 스타일 */
+.list-table {
+  width: 95%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin-top: 30px;
+}
+
+.list-table tr {
+  border-bottom: 1px solid #ddd;
+}
+
+.list-table td {
+  padding: 15px;
+  vertical-align: middle;
+}
+
+.list-item {
+  height: 10px;
+}
+
+.icon-column {
+  width: 5%;
+  text-align: center;
+}
+
+.title-column {
+  width: 75%;
+  font-size: 14px;
+  color: black;
+}
+
+.date-column {
+  width: 8%;
+  font-size: 12px;
+  text-align: left;
+  margin-right: 1%;
+  color: #888;
+  padding-right: 5%;
+}
+
+/* 아이콘 스타일 */
+.file-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-color: #ccc;
+  border-radius: 3px;
+}
+
+.entry-container {
+  margin-top: 10px;
+}
+
+.entry-title {
+  font-size: 12px;
+  color: #333;
+  margin-left: 8px;
+  margin-top: 2px;
+  margin-bottom: 0px;
+  padding: 3px;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block;
+  max-width: 90%;
+  box-sizing: border-box;
+}
+
+.email-cell {
+  position: relative; /* 삭제 버튼을 절대 위치로 배치 */
+}
+
+.delete-button {
+  display: none; /* 기본적으로 숨김 */
+  position: absolute; /* 이메일 텍스트 오른쪽에 배치 */
+  right: 10px; /* 위치 조정 (필요에 따라 수정) */
+  background-color: #4d4d4d;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.email-cell:hover .delete-button {
+  display: inline-block; /* 부모가 hover 상태일 때 표시 */
+}

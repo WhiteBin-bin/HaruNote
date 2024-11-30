@@ -1,0 +1,91 @@
+/* Signup.css */
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 400px;
+  padding: 20px;
+  background-color: #fff;
+  margin-top: 40px;
+  position: relative;
+}
+
+.input {
+  padding: 17px 25px;
+  margin-bottom: 20px;
+  width: 80%;
+  border-radius: 30px;
+  border: 1px solid black;
+  font-size: 13px;
+}
+
+.passwordContainer {
+  position: relative;
+  width: 80%;
+}
+
+.passwordInput {
+  padding: 17px 25px;
+  margin-bottom: 15px;
+  width: 100%;
+  border-radius: 30px;
+  border: 1px solid black;
+  font-size: 13px;
+  position: relative;
+  left: -25px;
+}
+
+.signinButton {
+  position: absolute;
+  right: -26px;
+  top: 41%;
+  transform: translateY(-106%);
+  background-color: black;
+  color: white;
+  border: 1px solid black;
+  border-radius: 30px;
+  font-size: 16px;
+  cursor: pointer;
+  width: 115px;
+  height: 50px;
+}
+
+.signinButton:hover {
+  background-color: #444;
+}
+
+.authButton {
+  position: absolute;
+  right: -26px;
+  top: 41%;
+  transform: translateY(30%);
+  background-color: black;
+  color: white;
+  border: 1px solid black;
+  border-radius: 30px;
+  font-size: 16px;
+  cursor: pointer;
+  width: 115px;
+  height: 50px;
+}
+
+.authButton:hover {
+  background-color: #444;
+}
+
+.main-container {
+  height: 720px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: "NEXON Lv1 Gothic Low OTF";
+  margin-top: -220px;
+  font-size: 30px;
+  flex-direction: column;
+}
+
+.signup-img {
+  width: 500px;
+  margin-top: 25%;
+}

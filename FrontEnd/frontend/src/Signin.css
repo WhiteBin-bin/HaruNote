@@ -1,0 +1,75 @@
+.signin-main {
+  height: 720px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: "NEXON Lv1 Gothic Low OTF";
+  margin-top: -220px;
+  font-size: 30px;
+  flex-direction: column;
+}
+
+.signin-title {
+  width: 800px;
+  margin-top: 25%;
+}
+
+.signin-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 400px;
+  padding: 20px;
+  background-color: #fff;
+  margin-top: 70px;
+  position: relative;
+}
+
+.signin-input {
+  padding: 17px 25px;
+  margin-bottom: 30px;
+  width: 80%;
+  border-radius: 30px;
+  border: 1px solid black;
+  font-size: 13px;
+}
+
+.password-container {
+  position: relative;
+  width: 80%;
+}
+
+.password-input {
+  padding: 17px 25px;
+  margin-bottom: 15px;
+  width: 100%;
+  border-radius: 30px;
+  border: 1px solid black;
+  font-size: 13px;
+  position: relative;
+  left: -25px;
+}
+
+.signin-button {
+  position: absolute;
+  right: -26px;
+  top: 41%;
+  transform: translateY(-50%);
+  padding: 15px 30px;
+  background-color: black;
+  color: white;
+  border: 1px solid black;
+  border-radius: 30px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.signin-button:disabled {
+  background-color: gray;
+  cursor: not-allowed;
+}
+
+.signin-button:hover {
+  background-color: #444;
+}

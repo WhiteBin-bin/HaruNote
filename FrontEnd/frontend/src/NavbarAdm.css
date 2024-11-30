@@ -1,0 +1,85 @@
+/* Navbar.css */
+.navbarAdm {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: black;
+  padding: 10px 20px;
+  color: black;
+  height: 50px;
+  margin: 0 auto;
+}
+
+.logoAdm {
+  font-size: 24px;
+  font-weight: lighter;
+  margin-left: 50px;
+  color: white;
+}
+
+.navListAdm {
+  display: flex;
+  list-style-type: none;
+  padding: 11px 0px;
+  background-color: #4d4d4d;
+  border-radius: 50px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  justify-content: right;
+  align-items: center;
+  transform: translateX(-26%);
+  height: 20px;
+  position: relative;
+}
+
+.navLineAdm {
+  position: absolute;
+  top: 54%;
+  left: -320%;
+  width: 320%;
+  height: 1.5px;
+  background-color: white;
+  transform: translateY(-50%);
+}
+
+.navItem {
+  list-style: none;
+  margin: 0 50px;
+}
+
+.navItem2Adm {
+  list-style: none;
+  margin-left: 50px;
+  margin-right: 10px;
+}
+
+.navLinkWrapperAdm {
+  display: inline-block;
+  background-color: #fff;
+  color: #333;
+  padding: 3px 10px;
+  border-radius: 25px;
+  text-decoration: none;
+  text-align: center;
+  border: 1px solid #000;
+  width: 80px;
+  margin-left: 10px;
+}
+
+.navLinkAdm {
+  color: black;
+  text-decoration: none;
+  font-size: 18px;
+}
+
+.navLinkAccount {
+  display: inline-block;
+  background-color: black;
+  color: white;
+  padding: 6px 30px;
+  border-radius: 25px;
+  text-decoration: none;
+  text-align: center;
+  font-weight: normal;
+  font-size: 18px;
+}

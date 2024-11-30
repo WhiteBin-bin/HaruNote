@@ -1,119 +1,83 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import "./Navbar.css";
 
-function Navbar() {
+const Navbar = () => {
+  const navigate = useNavigate();
+  const user_id = sessionStorage.getItem("user_id");
+  const email = sessionStorage.getItem("email");
+
+  const handleLogout = () => {
+    sessionStorage.clear();
+    navigate("/signin");
+  };
+
+  const handleNavigation = (path) => {
+    if (!user_id) {
+      alert("로그인이 필요한 서비스 입니다.");
+    } else {
+      navigate(path);
+    }
+  };
+
   return (
-    <header style={styles.navbar}>
-      <div style={styles.logo}>HARU NOTE</div>
+    <header className="navbar">
+      <Link to="/signin" className="navLink">
+        <div className="logo">HARU NOTE</div>
+      </Link>
+
       <nav>
-        <ul style={styles.navList}>
-          <div style={styles.navLine}></div>
-          <li style={styles.navItem}>
-            <a href="/" style={styles.navLink}>
+        <ul className="navList">
+          <div className="navLine"></div>
+          <li className="navItem">
+            <Link
+              to="/calendar"
+              className="navLink"
+              onClick={(event) => {
+                event.preventDefault();
+                handleNavigation("/calendar");
+              }}
+            >
               Calendar
-            </a>
-          </li>
-          <li style={styles.navItem}>
-            <a href="#" style={styles.navLink}>
-              Blog
-            </a>
-          </li>
-          <li style={styles.navLinkWrapper}>
-            <Link to="/signup" style={styles.navLink}>
-              Sign up
             </Link>
           </li>
-          <li style={styles.navItem2}>
-            <Link to="/signin" style={styles.navLinkSignin}>
-              Sign in
+          <li className="navItem">
+            <Link
+              to="/blog"
+              className="navLink"
+              onClick={(event) => {
+                event.preventDefault();
+                handleNavigation("/blog");
+              }}
+            >
+              Blog
+            </Link>
+          </li>
+          <li className="navItem2">
+            {user_id ? (
+              <Link
+                to="/signin"
+                style={{ cursor: "pointer" }}
+                className="navLinkSignin"
+                onClick={handleLogout}
+              >
+                Logout
+              </Link>
+            ) : (
+              <Link to="/signin" className="navLinkSignin">
+                Sign in
+              </Link>
+            )}
+          </li>
+          <li className="navLinkWrapper">
+            <Link to="/signup" className="navLink2">
+              {user_id ? `${email.split("@")[0]}` : "Sign up"}
             </Link>
           </li>
         </ul>
       </nav>
     </header>
   );
-}
-
-const styles = {
-  navbar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#DCDAD8",
-    padding: "10px 20px",
-    color: "black",
-    height: "50px",
-    margin: "0 auto",
-  },
-
-  logo: {
-    fontSize: "24px",
-    fontWeight: "lighter",
-    marginLeft: "50px",
-  },
-  navList: {
-    display: "flex",
-    listStyleType: "none",
-    padding: "11px 0px",
-    backgroundColor: "white",
-    borderRadius: "50px",
-    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-    width: "180%",
-    justifyContent: "right",
-    alignItems: "center",
-    transform: "translateX(-46%)",
-    height: "20px",
-    position: "relative",
-  },
-  navLine: {
-    position: "absolute",
-    top: "54%",
-    left: "-23%",
-    width: "68%",
-    height: "1px",
-    backgroundColor: "#000000",
-    transform: "translateY(-50%)",
-  },
-  navItem: {
-    listStyle: "none",
-    margin: "0 50px",
-  },
-  navItem2: {
-    listStyle: "none",
-    marginLeft: "50px",
-    marginRight: "10px",
-  },
-  navLinkWrapper: {
-    display: "inline-block",
-    backgroundColor: "#fff",
-    color: "#333",
-    padding: "3px 10px",
-    borderRadius: "25px",
-    textDecoration: "none",
-    textAlign: "center",
-    border: "1px solid #000",
-    width: "80px",
-    marginLeft: "10px",
-  },
-  navLinkText: {
-    fontSize: "18px",
-  },
-  navLink: {
-    color: "black",
-    textDecoration: "none",
-    fontSize: "18px",
-  },
-  navLinkSignin: {
-    display: "inline-block",
-    backgroundColor: "black",
-    color: "white",
-    padding: "6px 30px",
-    borderRadius: "25px",
-    textDecoration: "none",
-    textAlign: "center",
-    fontWeight: "normal",
-    fontSize: "18px",
-  },
 };
 
 export default Navbar;

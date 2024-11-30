@@ -1,5 +1,4 @@
 import React from "react";
-import title from "./assets/title.png";
 import Signin from "./Signin";
 
 const Main = () => {
@@ -17,11 +16,6 @@ const Main = () => {
           flexDirection: "column",
         }}
       >
-        <img
-          src={title}
-          style={{ width: "600px", marginTop: "25%" }}
-          alt="description"
-        />
         {/* <p>소소한 일상을 나누는 공간, 하루노트</p> */}
         <Signin />
       </main>

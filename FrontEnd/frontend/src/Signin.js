@@ -1,59 +1,79 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import title from "./assets/title.png";
+import "./Signin.css";
 
 const Signin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const navigate = useNavigate();
 
-  const handleSignin = () => {
-    console.log("Email:", email);
-    console.log("Password:", password);
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleSignin();
+    }
+  };
+
+  const handleSignin = async () => {
+    if (!email) {
+      alert("이메일을 입력해주세요.");
+      return;
+    } else if (!password) {
+      alert("비밀번호를 입력해주세요.");
+      return;
+    }
+
+    try {
+      const response = await axios.post("http://localhost:8000/user/signin", {
+        email,
+        password,
+      });
+
+      sessionStorage.setItem("token", response.data.access_token);
+      sessionStorage.setItem("refresh_token", response.data.refresh_token);
+      sessionStorage.setItem("user_id", response.data.user_id);
+      sessionStorage.setItem("is_admin", response.data.is_admin);
+      sessionStorage.setItem("email", response.data.email);
+
+      if (response.data.is_admin === true) {
+        navigate("/admin");
+        window.location.reload();
+      } else {
+        navigate("/calendar");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("로그인에 실패했습니다. 다시 시도해주세요.");
+    }
   };
 
   return (
     <div>
-      <main
-        style={{
-          height: "720px",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          fontFamily: "NEXON Lv1 Gothic Low OTF",
-          marginTop: "-220px",
-          fontSize: "30px",
-          flexDirection: "column",
-        }}
-      >
-        <img
-          src={title}
-          style={{ width: "800px", marginTop: "25%" }}
-          alt="description"
-        />
-        {/* <p>소소한 일상을 나누는 공간, 하루노트</p> */}
-        <div style={styles.container}>
+      <main className="signin-main">
+        <img src={title} className="signin-title" alt="description" />
+        <div className="signin-container" onKeyDown={handleKeyDown}>
           <input
             type="email"
             placeholder="name@company.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            style={styles.input}
+            className="signin-input"
           />
 
-          <div style={styles.passwordContainer}>
+          <div className="password-container">
             <input
               type="password"
               placeholder="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              style={styles.passwordInput}
+              className="password-input"
             />
 
             <button
               type="button"
               onClick={handleSignin}
-              style={styles.signinButton}
-              onMouseOver={(e) => (e.target.style.backgroundColor = "#444")}
-              onMouseOut={(e) => (e.target.style.backgroundColor = "black")}
+              className="signin-button"
             >
               Sign in
             </button>
@@ -62,56 +82,6 @@ const Signin = () => {
       </main>
     </div>
   );
-};
-
-const styles = {
-  container: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    width: "100%",
-    maxWidth: "400px",
-    padding: "20px",
-    backgroundColor: "#fff",
-    marginTop: "70px",
-    position: "relative",
-  },
-  input: {
-    padding: "17px 25px",
-    marginBottom: "30px",
-    width: "80%",
-    borderRadius: "30px",
-    border: "1px solid black",
-    fontSize: "13px",
-  },
-  passwordContainer: {
-    position: "relative",
-    width: "80%",
-  },
-  passwordInput: {
-    padding: "17px 25px",
-    marginBottom: "15px",
-    width: "100%",
-    borderRadius: "30px",
-    border: "1px solid black",
-    fontSize: "13px",
-    position: "relative",
-    left: "-20px",
-  },
-  signinButton: {
-    position: "absolute",
-    right: "-32px",
-    top: "41%",
-    transform: "translateY(-50%)",
-    padding: "15px 30px",
-    backgroundColor: "black",
-    color: "white",
-    border: "1px solid black",
-    borderRadius: "30px",
-    fontSize: "16px",
-    cursor: "pointer",
-    transition: "background-color 0.3s",
-  },
 };
 
 export default Signin;

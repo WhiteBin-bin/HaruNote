@@ -1,5 +1,5 @@
-.notion-table-calendar {
-  width: 100%;
+.table-calendar {
+  width: 90%;
   max-width: 1200px;
   margin: 20px auto;
   font-family: "Arial", sans-serif;
@@ -10,7 +10,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  height: 25px;
+  margin-top: 8px;
 }
 
 .calendar-header h2 {
@@ -18,19 +19,26 @@
   font-weight: normal;
 }
 
+.button-group {
+  display: flex;
+  gap: 5px;
+  margin-left: auto;
+}
+
 .calendar-header button {
   background: none;
   border: none;
   cursor: pointer;
   font-size: 16px;
+  padding: 5px 10px; /* 버튼 크기 조정 */
 }
 
 .calendar-table {
-  width: 100%; /* 100%로 설정 (부모 요소의 너비를 채움) */
-  max-width: 1200px; /* 원하는 최대 너비로 설정 */
+  width: 100%;
+  max-width: 1200px;
   border-collapse: collapse;
   text-align: center;
-  table-layout: fixed; /* 균등한 열 너비 */
+  table-layout: fixed;
 }
 
 .calendar-table th {
@@ -42,10 +50,10 @@
 }
 
 .calendar-table td {
-  height: 100px; /* 셀 높이 */
+  height: 95px; /* 셀 높이 */
   border: 1px solid #e0e0e0;
-  position: relative; /* 숫자 위치 조정을 위해 필요 */
-  text-align: left; /* 기본 텍스트 정렬 */
+  position: relative;
+  text-align: left;
 }
 
 .calendar-table td.empty {
@@ -76,9 +84,7 @@
 }
 
 .cell-button {
-  /* 버튼 기본 스타일 제거 */
   all: unset;
-  /* 크기 및 위치 설정 */
   position: absolute;
   top: 5px;
   left: 5px;
@@ -92,8 +98,13 @@
   transition: opacity 0.2s ease-in-out; /* 부드러운 전환 */
 }
 
-td {
-  position: relative; /* 버튼을 위치시키기 위한 기준점 */
+.calendar-table .td {
+  position: relative;
+  width: 100px; /* 캘린더 셀 너비 */
+  height: 80px; /* 캘린더 셀 높이 */
+  text-align: center;
+  vertical-align: top; /* 텍스트 상단 정렬 */
+  overflow: hidden; /* 넘치는 콘텐츠 숨김 */
 }
 
 td:hover .cell-button {
@@ -125,4 +136,122 @@ td:hover .cell-button {
   height: 100%;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   text-align: center;
+}
+
+.tab-header {
+  display: flex;
+  justify-content: flex-start;
+  border-bottom: 1px solid #ccc;
+  max-width: 1200px;
+}
+
+.tab-button {
+  position: relative;
+  padding: 5px 17px;
+  border: 1px solid #ccc;
+  border-bottom: none;
+  background-color: #f9f9f9;
+  cursor: pointer;
+  font-size: 14px;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  z-index: 1;
+}
+
+.tab-button.active {
+  background-color: #333;
+  color: white;
+  z-index: 2; /* 활성 탭을 앞으로 가져오기 */
+}
+
+.tab-button:not(.active):hover {
+  background-color: #ddd;
+}
+
+.tab-content {
+  padding: 20px;
+  background-color: #f9f9f9;
+  border: 1px solid #ccc;
+  border-top: none;
+}
+
+.list-container {
+  padding: 20px;
+}
+
+.list-container h2 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+/* 테이블 스타일 */
+.list-table {
+  width: 95%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin-top: 30px;
+}
+
+.list-table tr {
+  border-bottom: 1px solid #ddd;
+}
+
+.list-table td {
+  padding: 15px;
+  vertical-align: middle;
+}
+
+.list-item {
+  height: 10px;
+}
+
+.icon-column {
+  width: 5%;
+  text-align: center;
+}
+
+.title-column {
+  width: 75%;
+  font-size: 14px;
+  color: black;
+}
+
+.date-column {
+  width: 8%;
+  font-size: 12px;
+  text-align: left;
+  margin-right: 1%;
+  color: #888;
+  padding-right: 5%;
+}
+
+/* 아이콘 스타일 */
+.file-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-color: #ccc;
+  border-radius: 3px;
+}
+
+.entry-container {
+  margin-top: 10px;
+}
+
+.entry-title {
+  font-size: 12px;
+  color: #333;
+  margin-left: 8px;
+  margin-top: 2px;
+  margin-bottom: 0px;
+  padding: 3px;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block;
+  max-width: 90%;
+  box-sizing: border-box;
 }
